@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_COLORS, isHex, onColor, resolveColors } from '../src/shared/colors';
-import { decodeSettings, DEFAULT_SETTINGS, encodeSettings, normalizeSettings, stripProFeatures, TRUNCATE_MAX, TRUNCATE_MIN, usesProFeatures } from '../src/shared/settings';
+import { decodeSettings, DEFAULT_SETTINGS, encodeSettings, normalizeSettings, stripProFeatures, MAX_HIDDEN, TRUNCATE_MAX, TRUNCATE_MIN, usesProFeatures } from '../src/shared/settings';
 
 describe('normalizeSettings', () => {
   it('gives the defaults for nothing, junk and wrong types', () => {
@@ -14,6 +14,19 @@ describe('normalizeSettings', () => {
     expect(s.show.photo).toBe(false);
     expect(s.show.name).toBe(true);
     expect('skin' in s).toBe(false); // the old themes are gone
+  });
+  it('cleans the hidden review list and the header position', () => {
+    expect(normalizeSettings({ hiddenIds: ['a', 'a', '', 5, 'b', 'x'.repeat(300)] }).hiddenIds).toEqual(['a', 'b']);
+    expect(normalizeSettings({ hiddenIds: Array.from({ length: 500 }, (_, i) => `id${i}`) }).hiddenIds).toHaveLength(MAX_HIDDEN);
+    expect(normalizeSettings({ hiddenIds: 'nope' }).hiddenIds).toEqual([]);
+    expect(normalizeSettings({ headerLayout: 'side' }).headerLayout).toBe('side');
+    expect(normalizeSettings({ headerLayout: 'diagonal' }).headerLayout).toBe('top');
+    expect(normalizeSettings({}).show.nameLink).toBe(false);
+  });
+  it('hiding reviews and the header position are not Pro features', () => {
+    const s = normalizeSettings({ count: 5, hiddenIds: ['a'], headerLayout: 'side', show: { nameLink: true } });
+    expect(usesProFeatures(s)).toBe(false);
+    expect(stripProFeatures(s, 'free')).toMatchObject({ hiddenIds: ['a'], headerLayout: 'side' });
   });
   it('limits the cut-off length', () => {
     expect(normalizeSettings({ truncate: 5 }).truncate).toBe(TRUNCATE_MIN);

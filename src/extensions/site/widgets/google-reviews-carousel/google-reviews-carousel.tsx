@@ -7,7 +7,7 @@ import { REVIEW_CACHE_COLLECTION, WIDGET_SETTINGS_COLLECTION } from '../../../..
 import { PRO_LIMITS, type Plan } from '../../../../shared/plan';
 import { selectForDisplay } from '../../../../shared/review-filter';
 import { decodeSettings, type Settings } from '../../../../shared/settings';
-import { buildWall, EDITOR_NOTE, SAMPLE, type WallData } from '../../../../shared/wall-render';
+import { buildEmpty, buildWall, EDITOR_NOTE, SAMPLE, type WallData } from '../../../../shared/wall-render';
 import { wireWall } from '../../../../shared/wall-behavior';
 
 interface Saved {
@@ -96,24 +96,32 @@ class GoogleReviewsCarousel extends HTMLElement {
   private render() {
     const settings = this.saved?.settings ?? decodeSettings('');
     const plan = this.saved?.plan ?? 'unknown';
+    const lang = document.documentElement.lang;
     const hasReal = !!this.saved && this.saved.data.reviews.length > 0;
     const sample = this.editor && !hasReal;
     const base = hasReal ? this.saved!.data : sample ? SAMPLE : null;
-    if (!base) {
+
+    // Nothing to draw. A read that failed (or has not finished) shows nothing; a site with no saved reviews, or filters that
+    // leave none, shows one friendly line instead of an empty gap.
+    const shown = base ? selectForDisplay(base.reviews, settings, sample ? 'pro' : plan) : [];
+    if (!base || shown.length === 0) {
+      const loadedButEmpty = !!this.saved || this.editor;
+      this.paint(loadedButEmpty ? buildEmpty(settings, lang) : null, '');
+      return;
+    }
+    this.paint(buildWall({ ...base, reviews: shown }, settings, lang), sample ? EDITOR_NOTE : '');
+  }
+
+  private paint(built: { html: string; css: string } | null, note: string) {
+    if (!built) {
       this.root.innerHTML = '';
       return;
     }
-    const shown = selectForDisplay(base.reviews, settings, sample ? 'pro' : plan);
-    const { html, css } = buildWall({ ...base, reviews: shown }, settings, document.documentElement.lang);
-    if (shown.length === 0) {
-      this.root.innerHTML = '';
-      return;
-    }
-    this.root.innerHTML = `<style></style>${html}${sample ? `<div class="note"></div>` : ''}`;
+    this.root.innerHTML = `<style></style>${built.html}${note ? `<div class="note"></div>` : ''}`;
     // Text goes in through textContent, never string-built into the page.
-    (this.root.querySelector('style') as HTMLStyleElement).textContent = css;
-    const note = this.root.querySelector('.note');
-    if (note) note.textContent = EDITOR_NOTE;
+    (this.root.querySelector('style') as HTMLStyleElement).textContent = built.css;
+    const noteEl = this.root.querySelector('.note');
+    if (noteEl) noteEl.textContent = note;
   }
 }
 

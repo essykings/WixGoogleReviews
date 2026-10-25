@@ -13,7 +13,8 @@ function hasAny(text: string, words: string[]): boolean {
 
 export function selectForDisplay(reviews: Review[], settings: Settings, plan: Plan): Review[] {
   const s = stripProFeatures(settings, plan);
-  let list = reviews.filter((r) => s.stars.includes(r.rating));
+  const hidden = new Set(s.hiddenIds);
+  let list = reviews.filter((r) => !hidden.has(r.id) && s.stars.includes(r.rating));
   if (s.include.length) list = list.filter((r) => r.text && hasAny(r.text, s.include));
   if (s.exclude.length) list = list.filter((r) => !hasAny(r.text, s.exclude));
   if (s.onlyWithText) list = list.filter((r) => !!r.text);

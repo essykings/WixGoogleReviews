@@ -25,6 +25,13 @@ describe('selectForDisplay', () => {
     expect(ids(selectForDisplay(all, s({ sort: 'highest' }), 'pro'))).toBe('aecdb');
     expect(ids(selectForDisplay(all, s({ sort: 'lowest' }), 'pro'))).toBe('bdcae');
   });
+  it('leaves out reviews the owner hid, on any plan, before counting', () => {
+    expect(ids(selectForDisplay(all, s({ hiddenIds: ['b', 'zzz'] }), 'pro'))).toBe('cade');
+    expect(ids(selectForDisplay(all, s({ hiddenIds: ['b'], count: 5 }), 'free'))).toBe('cade');
+    expect(ids(selectForDisplay(all, s({ hiddenIds: ['b'], count: 5 }), 'pro')).length).toBe(4);
+    const many = Array.from({ length: 8 }, (_, i) => r(`m${i}`, 5, 'ok', i + 1));
+    expect(selectForDisplay(many, s({ hiddenIds: ['m7'], count: 5 }), 'pro').map((x) => x.id)).toEqual(['m6', 'm5', 'm4', 'm3', 'm2']);
+  });
   it('limits the count', () => expect(selectForDisplay(all, s({ count: 5 }), 'pro')).toHaveLength(5));
   it('Free ignores stars, keywords and sort, and shows at most 5', () => {
     const many = Array.from({ length: 12 }, (_, i) => r(`x${i}`, 5, 'ok', i + 1));

@@ -29,6 +29,9 @@ export const BADGE_STYLES = ['name', 'image', 'stars'] as const;
 export type BadgeStyle = (typeof BADGE_STYLES)[number];
 export const FONTS = ['clean', 'site'] as const;
 export type Font = (typeof FONTS)[number];
+export const HEADER_LAYOUTS = ['top', 'side'] as const;
+export type HeaderLayout = (typeof HEADER_LAYOUTS)[number];
+export const MAX_HIDDEN = 300;
 export const TRUNCATE_MIN = 40;
 export const TRUNCATE_MAX = 400;
 
@@ -47,6 +50,8 @@ export interface Show {
   text: boolean;
   date: boolean;
   name: boolean;
+  /** Make the reviewer's name a link to the review on Google. */
+  nameLink: boolean;
   photo: boolean;
   reply: boolean;
   link: boolean;
@@ -59,6 +64,10 @@ export interface Show {
 
 export interface Settings {
   template: Template;
+  /** Where the business header sits: above the reviews, or at their left. */
+  headerLayout: HeaderLayout;
+  /** Reviews the owner chose to hide (their IDs). */
+  hiddenIds: string[];
   count: number;
   /** Star ratings to include (Pro). */
   stars: number[];
@@ -90,6 +99,8 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   template: 'carousel',
+  headerLayout: 'top',
+  hiddenIds: [],
   count: 10,
   stars: [1, 2, 3, 4, 5],
   include: [],
@@ -98,7 +109,7 @@ export const DEFAULT_SETTINGS: Settings = {
   onlyWithText: false,
   columns: 3,
   autoplay: false,
-  show: { header: true, placeName: true, placeImage: true, rating: true, count: true, stars: true, text: true, date: true, name: true, photo: true, reply: false, link: false, leaveButton: false, badge: false, arrows: true, dots: true },
+  show: { header: true, placeName: true, placeImage: true, rating: true, count: true, stars: true, text: true, date: true, name: true, nameLink: false, photo: true, reply: false, link: false, leaveButton: false, badge: false, arrows: true, dots: true },
   headerTitle: '',
   colors: { background: '', card: '', text: '', star: '', button: '' },
   transparent: false,
@@ -137,6 +148,16 @@ export function cleanKeywords(v: unknown): string[] {
   return out;
 }
 
+export function cleanIds(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const raw of v) {
+    if (typeof raw === 'string' && raw && raw.length <= 200 && !out.includes(raw)) out.push(raw);
+    if (out.length >= MAX_HIDDEN) break;
+  }
+  return out;
+}
+
 export function normalizeSettings(raw: unknown): Settings {
   const r = raw && typeof raw === 'object' ? (raw as Record<string, any>) : {};
   const d = DEFAULT_SETTINGS;
@@ -145,6 +166,8 @@ export function normalizeSettings(raw: unknown): Settings {
   const truncate = Number.isFinite(r.truncate) ? Math.max(TRUNCATE_MIN, Math.min(TRUNCATE_MAX, Math.round(r.truncate))) : d.truncate;
   return {
     template: oneOf(TEMPLATES, r.template, d.template),
+    headerLayout: oneOf(HEADER_LAYOUTS, r.headerLayout, d.headerLayout),
+    hiddenIds: cleanIds(r.hiddenIds),
     count: COUNTS.includes(r.count) ? r.count : d.count,
     stars: stars.length ? stars : d.stars,
     include: cleanKeywords(r.include),
@@ -163,6 +186,7 @@ export function normalizeSettings(raw: unknown): Settings {
       text: bool(show.text, d.show.text),
       date: bool(show.date, d.show.date),
       name: bool(show.name, d.show.name),
+      nameLink: bool(show.nameLink, d.show.nameLink),
       photo: bool(show.photo, d.show.photo),
       reply: bool(show.reply, d.show.reply),
       link: bool(show.link, d.show.link),

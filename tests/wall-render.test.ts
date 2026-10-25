@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeSettings, TEMPLATES, type Settings } from '../src/shared/settings';
-import { avatarTone, buildWall, cutText, escapeHtml, formatName, initialsOf, MAX_DOTS, PAGE_SIZE, SAMPLE, type WallData } from '../src/shared/wall-render';
+import { avatarTone, buildEmpty, buildWall, cutText, escapeHtml, formatName, initialsOf, MAX_DOTS, PAGE_SIZE, SAMPLE, type WallData } from '../src/shared/wall-render';
 import { formatDateStyle, resolveLanguage, SUPPORTED_LANGUAGES, wordingFor } from '../src/shared/wording';
 import type { Review } from '../src/shared/reviews';
 
@@ -154,6 +154,31 @@ describe('buildWall', () => {
   });
 });
 
+describe('header position, name links and the empty message', () => {
+  it('the header can sit above or at the left, and the cards are in their own body', () => {
+    const d = data([review()]);
+    expect(html(d)).toContain('h-top');
+    expect(html(d, { headerLayout: 'side' })).toContain('h-side');
+    expect(html(d, { headerLayout: 'side' })).toMatch(/<div class="inner"><header class="head">.*<\/header><div class="body">/);
+    expect(css({ headerLayout: 'side' })).toContain('.h-side .head');
+  });
+  it('a name is a link to the review only when the owner turns it on and the review has a link', () => {
+    const d = data([review()]);
+    expect(html(d)).not.toContain('class="alink"');
+    const on = html(d, { show: { nameLink: true } });
+    expect(on).toContain('<a class="alink" href="https://www.google.com/maps/reviews/data=x" target="_blank" rel="noopener noreferrer">Ann Lee</a>');
+    expect(html(data([review({ url: '' })]), { show: { nameLink: true } })).not.toContain('class="alink"');
+    expect(html(d, { show: { nameLink: true, name: false } })).not.toContain('class="alink"');
+  });
+  it('the empty wall is one friendly line in the site language, in the owner colours', () => {
+    const e = buildEmpty(set({ colors: { background: '#001122' } }), 'fr');
+    expect(e.html).toContain('Aucun avis à afficher pour le moment.');
+    expect(e.css).toContain('--gr-bg: #001122');
+    expect(buildEmpty(set(), 'xx').html).toContain('No reviews to show yet.');
+    expect(buildEmpty(set(), 'en').html).not.toContain('{{');
+  });
+});
+
 describe('css', () => {
   it('starts with a white background and the reference colours and font', () => {
     const c = css();
@@ -226,7 +251,7 @@ describe('wording', () => {
   it('every language fills every string', () => {
     for (const lang of SUPPORTED_LANGUAGES) {
       const w = wordingFor(lang);
-      for (const v of [w.title, w.ownerReply, w.readMore, w.readLess, w.previous, w.next, w.viewOnGoogle, w.anonymous, w.noText, w.leaveReview, w.showMore, w.fromGoogle]) expect(v.length).toBeGreaterThan(1);
+      for (const v of [w.title, w.ownerReply, w.readMore, w.readLess, w.previous, w.next, w.viewOnGoogle, w.anonymous, w.noText, w.leaveReview, w.showMore, w.fromGoogle, w.noReviews]) expect(v.length).toBeGreaterThan(1);
       expect(w.reviewsCount('5', false)).toContain('5');
       expect(w.googleCount('5', false)).toContain('5');
       expect(w.starsLabel('4.6')).toContain('4.6');

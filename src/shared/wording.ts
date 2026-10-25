@@ -21,6 +21,8 @@ export interface Wording {
   googleCount(count: string, isOne: boolean): string;
   /** What the check mark means. */
   fromGoogle: string;
+  /** Shown in place of the wall when there is nothing to show. */
+  noReviews: string;
 }
 
 const WORDING: Record<string, Wording> = {
@@ -40,6 +42,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Show more',
     googleCount: (c, one) => (one ? '1 Google review' : `${c} Google reviews`),
     fromGoogle: 'Review from Google',
+    noReviews: 'No reviews to show yet.',
   },
   es: {
     title: 'Reseñas de Google',
@@ -57,6 +60,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Ver más',
     googleCount: (c, one) => (one ? '1 reseña de Google' : `${c} reseñas de Google`),
     fromGoogle: 'Reseña de Google',
+    noReviews: 'Aún no hay reseñas que mostrar.',
   },
   fr: {
     title: 'Avis Google',
@@ -74,6 +78,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Voir plus',
     googleCount: (c, one) => (one ? '1 avis Google' : `${c} avis Google`),
     fromGoogle: 'Avis provenant de Google',
+    noReviews: 'Aucun avis à afficher pour le moment.',
   },
   de: {
     title: 'Google-Bewertungen',
@@ -91,6 +96,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Mehr anzeigen',
     googleCount: (c, one) => (one ? '1 Google-Bewertung' : `${c} Google-Bewertungen`),
     fromGoogle: 'Bewertung von Google',
+    noReviews: 'Noch keine Bewertungen vorhanden.',
   },
   pt: {
     title: 'Avaliações do Google',
@@ -108,6 +114,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Ver mais',
     googleCount: (c, one) => (one ? '1 avaliação do Google' : `${c} avaliações do Google`),
     fromGoogle: 'Avaliação do Google',
+    noReviews: 'Ainda não há avaliações para mostrar.',
   },
   it: {
     title: 'Recensioni Google',
@@ -125,6 +132,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Mostra altro',
     googleCount: (c, one) => (one ? '1 recensione Google' : `${c} recensioni Google`),
     fromGoogle: 'Recensione di Google',
+    noReviews: 'Nessuna recensione da mostrare per ora.',
   },
   nl: {
     title: 'Google-reviews',
@@ -142,6 +150,7 @@ const WORDING: Record<string, Wording> = {
     showMore: 'Meer tonen',
     googleCount: (c, one) => (one ? '1 Google-review' : `${c} Google-reviews`),
     fromGoogle: 'Review van Google',
+    noReviews: 'Er zijn nog geen reviews om te tonen.',
   },
 };
 

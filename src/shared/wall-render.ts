@@ -98,7 +98,9 @@ function card(r: Review, s: Settings, lang: string, index: number, paged: boolea
   const showReply = s.show.reply && !!r.replyText;
   const mark = s.show.badge ? badge(w.fromGoogle) : '';
 
-  const nameHtml = s.show.name ? `<div class="author">${escapeHtml(formatName(name, s.nameFormat))}${s.badgeStyle === 'name' ? mark : ''}</div>` : '';
+  const shownName = escapeHtml(formatName(name, s.nameFormat));
+  const nameText = s.show.nameLink && r.url ? `<a class="alink" href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer">${shownName}</a>` : shownName;
+  const nameHtml = s.show.name ? `<div class="author">${nameText}${s.badgeStyle === 'name' ? mark : ''}</div>` : '';
   const meta = `${nameHtml}${s.show.date && date ? `<div class="date">${escapeHtml(date)}</div>` : ''}`;
   const av = s.show.photo ? avatar(r, name, s.badgeStyle === 'image' ? mark : '') : '';
   const who = av || meta ? `<div class="who">${av}${meta ? `<div class="meta">${meta}</div>` : ''}</div>` : '';
@@ -162,7 +164,7 @@ export function buildWall(data: WallData, s: Settings, langRaw: string, now = Da
   const defs = `<svg class="defs" aria-hidden="true" focusable="false"><symbol id="st" viewBox="-0.7 -0.7 15.4 15.4"><path d="${STAR_PATH}" stroke-linejoin="round"/></symbol><symbol id="bd" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="#1a73e8"/><path d="M7.4 12.6l3 3 6.2-6.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol></svg>`;
   const cols = s.template === 'grid' || s.template === 'masonry' ? ` cols-${s.columns}` : '';
   const auto = rowTemplate && s.autoplay ? ' data-autoplay="1"' : '';
-  const html = `<section class="gr t-${s.template}${cols} al-${s.align}"${auto} aria-label="${label}">${defs}${header}${body}</section>`;
+  const html = `<section class="gr t-${s.template}${cols} al-${s.align} h-${s.headerLayout}"${auto} aria-label="${label}">${defs}<div class="inner">${header}<div class="body">${body}</div></div></section>`;
   return { html, css: wallCss(s) };
 }
 
@@ -180,13 +182,18 @@ export function wallCss(s: Settings): string {
   --gr-soft: color-mix(in srgb, var(--gr-text) 7%, var(--gr-card)); --gr-off: color-mix(in srgb, var(--gr-text) 24%, var(--gr-card));
   font-family: ${s.font === 'site' ? 'inherit' : FONT_STACK}; font-size: ${TEXT_PX[s.textSize]}px; line-height: 1.5; color: var(--gr-text); background: var(--gr-bg);
   border-radius: var(--gr-r); padding: ${pad}px; width: 100%; container-type: inline-size; }
+.inner { display: flex; flex-direction: column; }
+.body { min-width: 0; flex: 1 1 auto; }
 .head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin: 0 0 16px; }
+.h-side .inner { flex-direction: row; align-items: flex-start; gap: 24px; }
+.h-side .head { flex: 0 0 230px; flex-direction: column; align-items: flex-start; justify-content: flex-start; margin: 0; }
+.h-side .hl { flex-wrap: wrap; }
 .hl { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .ht { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pimg { width: 56px; height: 56px; object-fit: cover; border-radius: max(4px, calc(var(--gr-r) * 0.5)); flex: none; background: var(--gr-card); }
 .title { font-weight: 700; font-size: 1.1em; line-height: 1.25; overflow-wrap: anywhere; }
 .sum { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.sum .s { width: 1.45em; height: 1.45em; }
+.sum .s { width: 1.2em; height: 1.2em; }
 .count { font-weight: 600; }
 .stars { display: inline-flex; align-items: center; gap: 1px; line-height: 1; white-space: nowrap; }
 .s { width: 1.1em; height: 1.1em; flex: none; stroke-linejoin: round; }
@@ -223,8 +230,10 @@ export function wallCss(s: Settings): string {
 .av.ini.c0 { background: #2563eb; } .av.ini.c1 { background: #7c3aed; } .av.ini.c2 { background: #db2777; } .av.ini.c3 { background: #c2410c; }
 .av.ini.c4 { background: #0f766e; } .av.ini.c5 { background: #15803d; } .av.ini.c6 { background: #475569; } .av.ini.c7 { background: #a16207; }
 .author { font-weight: 700; overflow-wrap: anywhere; line-height: 1.3; }
+.alink { color: inherit; text-decoration: none; }
+.alink:hover { text-decoration: underline; text-underline-offset: 3px; }
 .date { color: var(--gr-muted); font-size: 0.87em; }
-.card .stars .s { width: 1.3em; height: 1.3em; }
+.card .stars .s { width: 1.05em; height: 1.05em; }
 .text { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
 .text.none { color: var(--gr-muted); font-style: italic; }
 .t-full { display: none; }
@@ -261,9 +270,17 @@ export function wallCss(s: Settings): string {
 .al-right .more { align-self: flex-end; }
 button:focus-visible, a:focus-visible, .track:focus-visible { outline: 3px solid var(--gr-btn); outline-offset: 2px; }
 @container (max-width: 760px) { .flow { --n: min(var(--gr-cols), 2); } }
+@container (max-width: 640px) { .h-side .inner { flex-direction: column; gap: 0; } .h-side .head { flex: 0 0 auto; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 0 16px; } }
 @container (max-width: 520px) { .flow { --n: 1; } .nav { display: none; } .t-carousel .card { flex-basis: 88%; } .t-slider .card { padding: 20px 16px; } }
+.empty-msg { margin: 0; padding: 28px 16px; text-align: center; color: var(--gr-muted); }
 .note { margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; background: #fff7e0; color: #6b4e00; font-size: 0.85em; }
 `;
+}
+
+/** The wall with nothing in it: one friendly line, in the site's language and the owner's colours. */
+export function buildEmpty(s: Settings, langRaw: string): { html: string; css: string } {
+  const w = wordingFor(resolveLanguage(langRaw));
+  return { html: `<section class="gr" aria-label="${escapeHtml(w.title)}"><p class="empty-msg">${escapeHtml(w.noReviews)}</p></section>`, css: wallCss(s) };
 }
 
 const sampleReview = (id: string, author: string, rating: number, text: string, days: number, reply = ''): Review => ({
