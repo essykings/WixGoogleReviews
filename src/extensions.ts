@@ -5,4 +5,8 @@ import dataCollections from './extensions/backend/data-collections/data-collecti
 
 import googleReviewsCarousel from './extensions/site/widgets/google-reviews-carousel/google-reviews-carousel.extension.ts';
 
-export default app().use(myPage).use(dataCollections).use(googleReviewsCarousel);
+import appRemoved from './extensions/backend/events/app-removed/app-removed.extension.ts';
+
+import rateGoogleReviewsCarousel from './extensions/dashboard/modals/rate-google-reviews-carousel/rate-google-reviews-carousel.extension.ts';
+
+export default app().use(myPage).use(dataCollections).use(googleReviewsCarousel).use(appRemoved).use(rateGoogleReviewsCarousel);
