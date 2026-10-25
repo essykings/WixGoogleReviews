@@ -5,7 +5,7 @@ const item = (o: any = {}) => ({
   reviewId: 'r1', name: 'Ann Lee', stars: 5, text: 'Great', publishedAtDate: '2026-10-24T13:35:40.173Z',
   originalLanguage: 'en', responseFromOwnerText: 'Thanks', responseFromOwnerDate: '2026-10-25T09:00:00.000Z',
   reviewUrl: 'https://www.google.com/maps/reviews/data=x', reviewerPhotoUrl: 'https://photo', reviewerUrl: 'https://profile',
-  title: 'The Ritz', imageUrl: 'https://place.photo/x', totalScore: 4.6, reviewsCount: 7927, ...o,
+  title: 'The Ritz', placeId: 'ChIJritz', imageUrl: 'https://place.photo/x', totalScore: 4.6, reviewsCount: 7927, ...o,
 });
 
 describe('mapProviderItem', () => {
@@ -38,11 +38,11 @@ describe('mapProviderItems', () => {
   it('reads the place summary and drops duplicates', () => {
     const { reviews, place } = mapProviderItems([item(), item(), item({ reviewId: 'r2' })]);
     expect(reviews).toHaveLength(2);
-    expect(place).toEqual({ placeName: 'The Ritz', imageUrl: 'https://place.photo/x', rating: 4.6, totalReviews: 7927 });
+    expect(place).toEqual({ placeId: 'ChIJritz', placeName: 'The Ritz', imageUrl: 'https://place.photo/x', rating: 4.6, totalReviews: 7927 });
   });
   it('copes with nothing at all', () => {
     expect(mapProviderItems(undefined).reviews).toEqual([]);
-    expect(mapProviderItems([]).place).toEqual({ placeName: '', imageUrl: '', rating: null, totalReviews: null });
+    expect(mapProviderItems([]).place).toEqual({ placeId: '', placeName: '', imageUrl: '', rating: null, totalReviews: null });
   });
 });
 

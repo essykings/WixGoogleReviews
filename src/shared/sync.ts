@@ -3,7 +3,7 @@ import type { Plan } from './plan';
 import { insightsDeps } from './insights-server';
 import type { Origin } from './insights';
 import { fetchReviews } from './provider';
-import { activateOnly, loadPlace, pruneCaches, savePlace, saveCache, siteData } from './store';
+import { activateAndPrune, loadPlace, savePlace, saveCache, siteData } from './store';
 import { syncReviews, type SyncResult } from './sync-core';
 
 export type { SyncResult };
@@ -18,12 +18,11 @@ export function syncSite(instanceId: string, opts: { plan: Plan; force?: boolean
       // Save this place's copy, make it the one shown, and drop the oldest copies beyond the limit.
       saveCache: async (c) => {
         await saveCache(data, c);
-        await activateOnly(data, c.placeId);
-        await pruneCaches(data, c.placeId);
+        await activateAndPrune(data, c.placeId);
       },
       providerReady: () => !!APIFY_TOKEN,
       ...insightsDeps(),
-      fetchReviews: (placeId, maxReviews) => fetchReviews(placeId, { maxReviews, token: APIFY_TOKEN ?? '' }),
+      fetchReviews: (target, maxReviews) => fetchReviews(target, { maxReviews, token: APIFY_TOKEN ?? '' }),
     },
     { ...opts, instanceId },
   );

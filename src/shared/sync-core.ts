@@ -12,7 +12,7 @@ export interface SyncDeps {
   loadPlace(): Promise<RegisteredPlace | null>;
   savePlace(p: RegisteredPlace): Promise<void>;
   saveCache(c: ReviewCache): Promise<void>;
-  fetchReviews(placeId: string, maxReviews: number): Promise<{ reviews: Review[]; place: PlaceSummary }>;
+  fetchReviews(target: { placeId: string } | { url: string }, maxReviews: number): Promise<{ reviews: Review[]; place: PlaceSummary }>;
   /** False when the provider cannot be called at all (no token). Checked first, so a setup problem never uses up an attempt. */
   providerReady?(): boolean;
   /** The spend brake: false pauses routine refreshes (back office kill switch or cap). Fails open. */
@@ -60,8 +60,9 @@ export async function syncReviews(
 
   // The spend brake. A first fetch for a new site is let through up to 1.5 times the cap (decided in the back office).
   const limits = limitsFor(opts.plan);
+  const count = limits.fetchCount;
   if (deps.allow) {
-    const verdict = await deps.allow(estimateCostUsd(limits.fetchCount), place.lastSuccessAt == null);
+    const verdict = await deps.allow(estimateCostUsd(count), place.lastSuccessAt == null);
     if (!verdict.allowed) {
       await deps.count?.(`skip:paused:${verdict.reason}`);
       return { status: 'paused', reason: verdict.reason };
@@ -79,22 +80,26 @@ export async function syncReviews(
   await deps.savePlace(current);
 
   const log = (outcome: FetchLog['outcome'], returned: number, kept: number, error?: unknown) =>
-    deps.log?.({ startedAt: now, finishedAt: Date.now(), instanceId: opts.instanceId ?? '', plan: opts.plan, placeId: place.placeId, placeName: current.placeName, origin: opts.origin ?? 'visit', outcome, requested: limits.fetchCount, returned, kept, error });
+    deps.log?.({ startedAt: now, finishedAt: Date.now(), instanceId: opts.instanceId ?? '', plan: opts.plan, placeId: place.placeId || place.placeUrl, placeName: current.placeName, origin: opts.origin ?? 'visit', outcome, requested: count, returned, kept, error });
 
   try {
-    const got = await deps.fetchReviews(place.placeId, limits.fetchCount);
+    const target = place.placeId ? { placeId: place.placeId } : { url: place.placeUrl };
+    const got = await deps.fetchReviews(target, count);
+    // A pasted Maps link becomes a Place ID here, from what the provider reports.
+    const placeId = got.place.placeId || place.placeId;
     const kept = selectReviews(got.reviews, opts.plan);
     if (kept.length === 0) {
-      current = { ...current, lastStatus: 'empty', lastSuccessAt: now, lastPlan: opts.plan, placeName: got.place.placeName || current.placeName };
+      current = { ...current, placeId, lastStatus: 'empty', lastSuccessAt: now, lastPlan: opts.plan, lastRequested: count, placeName: got.place.placeName || current.placeName };
       await deps.savePlace(current);
       await log('empty', got.reviews.length, 0);
       return { status: 'empty' };
     }
+    if (!placeId) throw new Error('Could not tell which business that link is.');
     const placeName = got.place.placeName || current.placeName;
     await deps.saveCache({
-      id: place.placeId,
+      id: placeId,
       isActive: true,
-      placeId: place.placeId,
+      placeId,
       placeName,
       placeImageUrl: got.place.imageUrl,
       rating: got.place.rating,
@@ -102,7 +107,7 @@ export async function syncReviews(
       reviews: kept,
       fetchedAt: now,
     });
-    await deps.savePlace({ ...current, placeName, lastStatus: 'ok', lastSuccessAt: now, lastPlan: opts.plan });
+    await deps.savePlace({ ...current, placeId, placeName, lastStatus: 'ok', lastSuccessAt: now, lastPlan: opts.plan, lastRequested: count });
     await log('updated', got.reviews.length, kept.length);
     return { status: 'updated', reviews: kept.length };
   } catch (e) {

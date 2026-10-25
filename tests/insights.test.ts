@@ -70,7 +70,7 @@ describe('callInsights and askBrake fail open', () => {
 });
 
 describe('syncReviews with the back office', () => {
-  const fresh: RegisteredPlace = { placeId: 'ChIJabc', placeName: '', registeredAt: NOW, lastAttemptAt: null, lastSuccessAt: null, lastStatus: 'pending', scrapesThisPeriod: 0, periodStart: null, lastPlan: null };
+  const fresh: RegisteredPlace = { placeId: 'ChIJabc', placeUrl: '', placeName: '', registeredAt: NOW, lastAttemptAt: null, lastSuccessAt: null, lastStatus: 'pending', scrapesThisPeriod: 0, periodStart: null, lastPlan: null, reviewAskedAt: null, lastRequested: null };
   const reviews = Array.from({ length: 8 }, (_, i) => ({ id: `r${i}`, author: 'A', rating: 5, text: 't', publishedAt: `2026-10-${10 + i}T00:00:00.000Z`, language: 'en', photoUrl: '', replyText: '', replyAt: '', url: '' }));
   const make = (extra: Partial<SyncDeps> = {}) => {
     const state = { place: fresh as RegisteredPlace | null, fetched: 0 };
@@ -78,7 +78,7 @@ describe('syncReviews with the back office', () => {
       loadPlace: async () => state.place,
       savePlace: async (p) => void (state.place = p),
       saveCache: async () => {},
-      fetchReviews: async () => { state.fetched++; return { reviews, place: { placeName: 'Cafe', imageUrl: '', rating: 4.5, totalReviews: 10 } }; },
+      fetchReviews: async () => { state.fetched++; return { reviews, place: { placeId: 'ChIJabc', placeName: 'Cafe', imageUrl: '', rating: 4.5, totalReviews: 10 } }; },
       ...extra,
     };
     return { deps, state };

@@ -10,6 +10,7 @@ export default {
   displayName: 'Registered places',
   fields: [
     { type: 'TEXT', displayName: 'Place ID', key: 'placeId' },
+    { type: 'TEXT', displayName: 'Google Maps link', key: 'placeUrl' },
     { type: 'TEXT', displayName: 'Place name', key: 'placeName' },
     { type: 'DATETIME', displayName: 'Registered at', key: 'registeredAt' },
     { type: 'DATETIME', displayName: 'Last refresh attempt', key: 'lastAttemptAt' },
@@ -18,6 +19,8 @@ export default {
     { type: 'NUMBER', displayName: 'Scrapes this period', key: 'scrapesThisPeriod' },
     { type: 'TEXT', displayName: 'Period start', key: 'periodStart' },
     { type: 'TEXT', displayName: 'Plan at last refresh', key: 'lastPlan' },
+    { type: 'DATETIME', displayName: 'Review asked at', key: 'reviewAskedAt' },
+    { type: 'NUMBER', displayName: 'Reviews asked for last time', key: 'lastRequested' },
   ],
   displayField: 'placeName',
   dataPermissions: {

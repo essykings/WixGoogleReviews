@@ -14,20 +14,24 @@ export function idsToPrune(items: { id: string; fetchedAt: number }[], keepId: s
 }
 
 /**
- * The registered place to save when the owner enters `placeId`. Same place: unchanged. A new place starts fresh,
- * except that a saved copy counts as the last success (so the refresh rules decide whether it is still young
- * enough) and the scrape count carries over, so re-saving cannot dodge the monthly cap.
+ * The registered place to save when the owner enters a business. The same business: unchanged. A new one starts fresh,
+ * except that a saved copy counts as the last success (so the refresh rules decide whether it is still young enough)
+ * and the scrape count carries over, so re-saving cannot dodge the monthly cap. A pasted Maps link has no Place ID
+ * until its first fetch, so there is no saved copy to reuse for it.
  */
 export function registeredPlaceFor(args: {
   existing: RegisteredPlace | null;
-  placeId: string;
+  target: { placeId: string } | { url: string };
   cached: { fetchedAt: number; placeName: string } | null;
   now: number;
 }): RegisteredPlace {
-  const { existing, placeId, cached, now } = args;
-  if (existing && existing.placeId === placeId) return existing;
+  const { existing, target, cached, now } = args;
+  const placeId = 'placeId' in target ? target.placeId : '';
+  const placeUrl = 'url' in target ? target.url : '';
+  if (existing && (placeId ? existing.placeId === placeId : existing.placeUrl === placeUrl)) return existing;
   return {
     placeId,
+    placeUrl,
     placeName: cached?.placeName ?? '',
     registeredAt: now,
     lastAttemptAt: null,
@@ -36,6 +40,8 @@ export function registeredPlaceFor(args: {
     scrapesThisPeriod: existing?.scrapesThisPeriod ?? 0,
     periodStart: existing?.periodStart ?? null,
     lastPlan: cached ? (existing?.lastPlan ?? null) : null,
+    reviewAskedAt: existing?.reviewAskedAt ?? null,
+    lastRequested: cached ? (existing?.lastRequested ?? null) : null,
   };
 }
 
@@ -48,4 +54,25 @@ export function pickActive(copies: ReviewCache[]): ReviewCache | null {
   if (flagged) return flagged;
   const withReviews = copies.filter((c) => c.reviews.length > 0).sort((a, b) => b.fetchedAt - a.fetchedAt);
   return withReviews[0] ?? null;
+}
+
+/**
+ * The registered place after the owner disconnects: no business, nothing fetched, but the usage counter and its 30-day
+ * period are kept, so disconnecting and reconnecting cannot be used to dodge the monthly cap.
+ */
+export function disconnectedPlace(record: RegisteredPlace | null, now: number): RegisteredPlace {
+  return {
+    placeId: '',
+    placeUrl: '',
+    placeName: '',
+    registeredAt: now,
+    lastAttemptAt: null,
+    lastSuccessAt: null,
+    lastStatus: 'pending',
+    scrapesThisPeriod: record?.scrapesThisPeriod ?? 0,
+    periodStart: record?.periodStart ?? null,
+    lastPlan: null,
+    reviewAskedAt: record?.reviewAskedAt ?? null,
+    lastRequested: null,
+  };
 }

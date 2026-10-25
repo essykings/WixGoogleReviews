@@ -7,15 +7,18 @@ export const ACTOR = 'compass~Google-Maps-Reviews-Scraper';
 
 export class ProviderError extends Error {}
 
+/** Which business to fetch: by Place ID, or by its Google Maps link (the provider reads both). */
+export type Target = { placeId: string } | { url: string };
+
 export interface FetchedReviews {
   reviews: Review[];
   place: PlaceSummary;
 }
 
 /** The provider's input. personalData must be true or reviews arrive without author names; we never store the photo or profile link. */
-export function buildProviderInput(placeId: string, maxReviews: number) {
+export function buildProviderInput(target: Target, maxReviews: number) {
   return {
-    placeIds: [placeId],
+    ...('placeId' in target ? { placeIds: [target.placeId] } : { startUrls: [{ url: target.url }] }),
     maxReviews,
     reviewsSort: 'newest',
     language: 'en',
@@ -25,7 +28,7 @@ export function buildProviderInput(placeId: string, maxReviews: number) {
 }
 
 export async function fetchReviews(
-  placeId: string,
+  target: Target,
   opts: { maxReviews: number; token: string; fetchImpl?: typeof fetch },
 ): Promise<FetchedReviews> {
   if (!opts.token) throw new ProviderError('The review provider is not set up (missing token).');
@@ -34,7 +37,7 @@ export async function fetchReviews(
   const res = await run(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${opts.token}` },
-    body: JSON.stringify(buildProviderInput(placeId, opts.maxReviews)),
+    body: JSON.stringify(buildProviderInput(target, opts.maxReviews)),
   });
   if (!res.ok) throw new ProviderError(`The review provider answered ${res.status}.`);
   let items: unknown;

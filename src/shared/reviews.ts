@@ -21,6 +21,8 @@ export interface Review {
 }
 
 export interface PlaceSummary {
+  /** The business's Place ID as the provider reports it (how a pasted Maps link becomes an ID). */
+  placeId: string;
   placeName: string;
   /** The business photo link (Google's server). Empty when there is none. */
   imageUrl: string;
@@ -76,6 +78,7 @@ export function mapProviderItems(items: unknown): { reviews: Review[]; place: Pl
   return {
     reviews,
     place: {
+      placeId: str(first?.placeId, 100),
       placeName: str(first?.title, 200),
       imageUrl: typeof first?.imageUrl === 'string' && first.imageUrl.startsWith('https://') ? first.imageUrl.slice(0, 500) : '',
       rating: Number.isFinite(rating) ? rating : null,
