@@ -4,15 +4,16 @@ import { httpClient } from '@wix/essentials';
 import { COLOR_KEYS, DEFAULT_COLORS, type Colors } from '../../../../shared/colors';
 import { formatWhen, noticeForResult, planLabel, type Notice } from '../../../../shared/messages';
 import type { Plan } from '../../../../shared/plan';
+import { REVIEW_MODAL_ID, wantsReviewReset } from '../../../../shared/review-prompt';
 import type { Review } from '../../../../shared/reviews';
 import {
-  ALIGNS, BADGE_STYLES, COLUMNS, COUNTS, DATE_FORMATS, DEFAULT_SETTINGS, FONTS, MAX_TITLE_LENGTH, NAME_FORMATS, RADII, TEMPLATES, TEXT_FORMATS, TEXT_SIZES, TRUNCATE_MAX, TRUNCATE_MIN,
+  ALIGNS, BADGE_STYLES, COLUMNS, COUNTS, DATE_FORMATS, DEFAULT_SETTINGS, FONTS, HEADER_LAYOUTS, MAX_HIDDEN, MAX_TITLE_LENGTH, NAME_FORMATS, RADII, TEMPLATES, TEXT_FORMATS, TEXT_SIZES, TRUNCATE_MAX, TRUNCATE_MIN,
   type Settings, type Show, type SortKey, type Template,
 } from '../../../../shared/settings';
 import { SAMPLE, type WallData } from '../../../../shared/wall-render';
 import { TemplateIcon } from './icons';
 import { Preview } from './Preview';
-import { Alert, Badge, Button, Card, ColorField, DeviceToggle, Field, Segmented, Select, Skeleton, Slider, Switch, TagInput, Tabs, TextInput } from './ui';
+import { Alert, Badge, Button, Card, ColorField, DeviceToggle, Field, Progress, Segmented, Select, Skeleton, Slider, Switch, TagInput, Tabs, TextInput } from './ui';
 import './ui.css';
 
 interface Status {
@@ -21,8 +22,9 @@ interface Status {
   plan: Plan;
   siteLanguage?: string;
   upgradeUrl?: string;
-  place: { placeId: string; placeName: string; lastStatus: string; lastSuccessAt: number | null; lastAttemptAt: number | null } | null;
-  cache: { placeId: string; placeName: string; placeImageUrl?: string; rating: number | null; totalReviews: number | null; reviews: Review[]; fetchedAt: number } | null;
+  place: { placeId: string; placeUrl?: string; placeName: string; lastStatus: string; lastSuccessAt: number | null; lastAttemptAt: number | null } | null;
+  /** undefined until the reviews request has answered; null when nothing is saved. */
+  cache?: { placeId: string; placeName: string; placeImageUrl?: string; rating: number | null; totalReviews: number | null; reviews: Review[]; fetchedAt: number } | null;
   savedPlaces?: { placeId: string; placeName: string; fetchedAt: number; active: boolean }[];
   settings: Settings | null;
 }
@@ -72,6 +74,7 @@ const HEADER_SHOW: Array<[keyof Show, string]> = [
 const CARD_SHOW: Array<[keyof Show, string]> = [
   ['photo', 'Reviewer photo'],
   ['name', 'Reviewer name'],
+  ['nameLink', 'Link the name to the review'],
   ['date', 'Date'],
   ['stars', 'Stars'],
   ['text', 'Review text'],
@@ -85,6 +88,7 @@ const DATE_NAMES: Record<(typeof DATE_FORMATS)[number], string> = { monthDayYear
 const NAME_NAMES: Record<(typeof NAME_FORMATS)[number], string> = { full: 'Full name', first: 'First name only', firstInitial: 'First name and last initial', initials: 'Initials only' };
 const ALIGN_NAMES = { left: 'Left', center: 'Center', right: 'Right' } as const;
 const TEXT_FORMAT_NAMES = { readMore: 'Read more', full: 'Full text', truncate: 'Cut off' } as const;
+const HEADER_LAYOUT_NAMES = { top: 'Above the reviews', side: 'At the left' } as const;
 const BADGE_NAMES = { name: 'Next to name', image: 'On photo', stars: 'After stars' } as const;
 const FONT_NAMES = { clean: 'Clean (like Roboto)', site: 'My site font' } as const;
 const COLOR_LABELS: Record<keyof Colors, string> = { background: 'Background', card: 'Cards', text: 'Text', star: 'Stars', button: 'Button' };
@@ -94,6 +98,7 @@ const kindFor = (k: Notice['kind']) => (k === 'danger' ? 'destructive' : k === '
 const DashboardPage: FC = () => {
   const [status, setStatus] = useState<Status | null>(() => readLast());
   const [loadError, setLoadError] = useState(false);
+  const [cacheReady, setCacheReady] = useState<boolean>(() => readLast()?.cache !== undefined);
   const [draft, setDraft] = useState<Settings>(() => readLast()?.settings ?? DEFAULT_SETTINGS);
   const [tab, setTab] = useState<Tab>('connection');
   const [saving, setSaving] = useState(false);
@@ -103,18 +108,37 @@ const DashboardPage: FC = () => {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'phone'>('desktop');
   const [stage, setStage] = useState<'light' | 'dark'>('light');
+  const [expanded, setExpanded] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const refreshedOnce = useRef(false);
   const edited = useRef(false);
 
   const load = useCallback(async (keepDraft = false) => {
+    // Both requests start now. The small one (plan, business, settings) shows the controls as soon as it answers; the
+    // saved reviews (bigger) fill the preview when they arrive.
+    const started = performance.now();
+    const reviewsRequest = call('/api/review-cache').catch(() => null);
     try {
       const s: Status = await call('/api/review-status');
       if (!s.ok) throw new Error(s.message);
-      setStatus(s);
-      writeLast(s);
+      const smallMs = Math.round(performance.now() - started);
+      setStatus((prev) => ({ ...s, cache: prev?.cache }));
       // Keep what the owner is already changing; otherwise show what is saved.
       if (s.settings && !keepDraft && !edited.current) setDraft(s.settings);
       setLoadError(false);
+      void reviewsRequest.then((c) => {
+        if (!c?.ok) return;
+        const reviewsMs = Math.round(performance.now() - started);
+        setStatus((prev) => {
+          const next = prev ? { ...prev, cache: c.cache ?? null } : prev;
+          if (next) writeLast(next);
+          return next;
+        });
+        setCacheReady(true);
+        // What the owner or we can read in the browser console to see where the time goes.
+        console.info('[Google Reviews Carousel] loaded', { controlsAfterMs: smallMs, reviewsAfterMs: reviewsMs, server: (s as any).timings, serverReviews: c.timings });
+      });
       return s;
     } catch (e) {
       console.error('[Google Reviews Carousel] could not load', e);
@@ -124,24 +148,30 @@ const DashboardPage: FC = () => {
   }, []);
 
   useEffect(() => {
+    // Testing hook: open the dashboard with ?reset-review-prompt to see the review prompt again.
+    if (wantsReviewReset(window.location.search)) {
+      void post('/api/reset-review-prompt', {}).then((r) => dashboard.showToast({ message: r?.ok ? 'Review prompt reset' : 'Could not reset the review prompt', type: r?.ok ? 'success' : 'error' }));
+    }
+  }, []);
+
+  useEffect(() => {
     void (async () => {
       const s = await load();
       if (s?.place && !refreshedOnce.current) {
         // Old reviews, or just upgraded? The rules decide whether this really calls the provider; usually it does nothing.
         refreshedOnce.current = true;
+        setRefreshing(true);
         try {
           const r = await post('/api/refresh-reviews', { origin: 'dashboard' });
           if (r?.result?.status === 'updated') await load(true);
         } catch {
           /* keep what is saved */
+        } finally {
+          setRefreshing(false);
         }
       }
     })();
   }, [load]);
-
-  useEffect(() => {
-    if (status?.place && !input) setInput(status.place.placeId);
-  }, [status?.place?.placeId]);
 
   const plan: Plan = status?.plan ?? 'unknown';
   const locked = plan === 'free';
@@ -154,6 +184,9 @@ const DashboardPage: FC = () => {
     edited.current = true;
     setDraft((d) => ({ ...d, show: { ...d.show, [k]: v } }));
   };
+
+  const hidden = new Set(draft.hiddenIds);
+  const toggleHidden = (id: string) => patch({ hiddenIds: hidden.has(id) ? draft.hiddenIds.filter((h) => h !== id) : [...draft.hiddenIds, id].slice(-MAX_HIDDEN) });
 
   const previewData: WallData = useMemo(
     () => (status?.cache ? { placeId: status.cache.placeId, placeName: status.cache.placeName, placeImageUrl: status.cache.placeImageUrl ?? '', rating: status.cache.rating, totalReviews: status.cache.totalReviews, reviews: status.cache.reviews } : SAMPLE),
@@ -169,9 +202,11 @@ const DashboardPage: FC = () => {
       if (!r.ok) setInputError(r.message ?? 'Something went wrong. Please try again.');
       else {
         setNotice(noticeForResult(r.result));
-        setInput(r.placeId ?? placeInput);
+        setInput(r.placeUrl || r.placeId || placeInput);
       }
       await load(true);
+      // The first time reviews are found for this site, ask for an App Market review (the server remembers that it asked).
+      if (r.ok && r.askForReview) dashboard.openModal({ modalId: REVIEW_MODAL_ID });
     } catch (e) {
       console.error('[Google Reviews Carousel] save place failed', e);
       setNotice({ kind: 'danger', text: 'Something went wrong. Please try again.' });
@@ -189,6 +224,24 @@ const DashboardPage: FC = () => {
       await load(true);
     } catch {
       setNotice({ kind: 'danger', text: 'Something went wrong. Please try again.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnect() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const r = await post('/api/disconnect-place', {});
+      if (!r.ok) throw new Error(r.message);
+      setInput('');
+      setInputError('');
+      setConfirmDisconnect(false);
+      await load(true);
+    } catch (e) {
+      console.error('[Google Reviews Carousel] disconnect failed', e);
+      setNotice({ kind: 'danger', text: 'Could not disconnect. Please try again.' });
     } finally {
       setBusy(false);
     }
@@ -216,43 +269,62 @@ const DashboardPage: FC = () => {
   }
 
   const place = status?.place;
-  const placeLine = place
+  const updatedText = place
     ? place.lastStatus === 'failed'
-      ? { dot: 'bad', text: 'The last update did not work. We will try again soon.' }
+      ? 'The last update did not work. We will try again soon.'
       : place.lastSuccessAt
-        ? { dot: 'ok', text: `${place.placeName ? `${place.placeName} · ` : ''}Reviews updated ${formatWhen(place.lastSuccessAt)}` }
-        : { dot: 'wait', text: 'Waiting for the first update.' }
-    : null;
+        ? `Reviews updated ${formatWhen(place.lastSuccessAt)}`
+        : 'Waiting for the first update.'
+    : '';
+  const dotKind = place ? (place.lastStatus === 'failed' ? 'bad' : place.lastSuccessAt ? 'ok' : 'wait') : 'wait';
 
+  const working = busy || refreshing;
+  const savedCount = status?.cache?.reviews.length ?? 0;
+  const wanted = locked ? 5 : draft.count;
   const rowTemplate = draft.template === 'carousel' || draft.template === 'slider';
 
   // ---- the cards ----------------------------------------------------------------------------------------------
-  const connectionCard = (
-    <Card title="Your business" description="Paste your Google Place ID, or a Google Maps link that contains it.">
-      <Field label="Place ID" error={inputError}>
+  const connectionCard = place ? (
+    <Card title="Your business" description="This is the business your reviews come from.">
+      <div className="biz">
+        {status?.cache?.placeImageUrl && <img className="biz-img" src={status.cache.placeImageUrl} alt="" referrerPolicy="no-referrer" />}
+        <div className="biz-main">
+          <div className="biz-name">{place.placeName || status?.cache?.placeName || 'Your business'}</div>
+          <div className="status">
+            <span className={`dot ${dotKind}`} />
+            <span>{updatedText}</span>
+          </div>
+        </div>
+        <div className="biz-actions">
+          {!confirmDisconnect && plan !== 'free' && <Button variant="ghost" small onClick={() => void refreshNow()} disabled={busy}>Refresh now</Button>}
+          {!confirmDisconnect ? (
+            <Button variant="outline" onClick={() => setConfirmDisconnect(true)} disabled={busy}>Disconnect</Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setConfirmDisconnect(false)} disabled={busy}>Cancel</Button>
+              <Button onClick={() => void disconnect()} disabled={busy}>{busy ? 'Working...' : 'Yes, disconnect'}</Button>
+            </>
+          )}
+        </div>
+      </div>
+      {confirmDisconnect && (
+        <Alert kind="info">
+          Disconnecting removes this business and its saved reviews from your site. You can connect it again at any time, which may use one of this month's updates.
+        </Alert>
+      )}
+      {notice && <Alert kind={kindFor(notice.kind)}>{notice.text}</Alert>}
+    </Card>
+  ) : (
+    <Card title="Your business" description="Paste your business’s Google Maps link. A Place ID works too.">
+      <Field label="Google Maps link" error={inputError} hint="On Google Maps, search for your business, press Share, then Copy link, and paste it here.">
         <div className="row">
-          <TextInput label="Place ID" value={input} onChange={setInput} placeholder="ChIJ..." disabled={busy} error={!!inputError} onEnter={() => input.trim() && void savePlace()} />
+          <TextInput label="Google Maps link" value={input} onChange={setInput} placeholder="https://www.google.com/maps/place/..." disabled={busy} error={!!inputError} onEnter={() => input.trim() && void savePlace()} />
           <Button onClick={() => void savePlace()} disabled={busy || !input.trim()}>{busy ? 'Working...' : 'Save place'}</Button>
         </div>
       </Field>
-      {placeLine && (
-        <div className="status">
-          <span className={`dot ${placeLine.dot}`} />
-          <span>{placeLine.text}</span>
-          {place && plan !== 'free' && <Button variant="ghost" small onClick={() => void refreshNow()} disabled={busy}>Refresh now</Button>}
-        </div>
-      )}
+      {busy && <div className="progress inline" role="status"><span className="spin" aria-hidden="true" /><span>Finding your reviews. This usually takes 10 to 30 seconds.</span></div>}
       {notice && <Alert kind={kindFor(notice.kind)}>{notice.text}</Alert>}
-      {!place && <Alert kind="info">Add your Place ID to see your own reviews in the preview.</Alert>}
-      {status?.savedPlaces && status.savedPlaces.filter((p) => !p.active).length > 0 && (
-        <Field label="Other places you saved" hint="Switching to one of these does not use another update if it is recent.">
-          <div className="row">
-            {status.savedPlaces.filter((p) => !p.active).map((p) => (
-              <Button key={p.placeId} variant="outline" small onClick={() => void savePlace(p.placeId)} disabled={busy}>{p.placeName || p.placeId.slice(0, 12)}</Button>
-            ))}
-          </div>
-        </Field>
-      )}
+      {!busy && <Alert kind="info">Add your business to see your own reviews in the preview.</Alert>}
     </Card>
   );
 
@@ -261,14 +333,20 @@ const DashboardPage: FC = () => {
       <div className="pv-bar">
         <h2 className="card-t">Preview</h2>
         <div className="row">
+          {tab !== 'connection' && <Button variant="outline" small onClick={() => setExpanded((e) => !e)}>{expanded ? 'Back to settings' : 'Expand preview'}</Button>}
           <Segmented label="Preview background" value={stage} onChange={setStage} options={[{ value: 'light', label: 'Light site' }, { value: 'dark', label: 'Dark site' }]} />
           <DeviceToggle value={device} onChange={setDevice} />
         </div>
       </div>
-      {status && !status.cache && <div className="pv-empty"><Alert kind="info">Showing example reviews until you save your Place ID.</Alert></div>}
+      {working && <Progress>Updating your reviews. This can take up to a minute, and you can keep editing.</Progress>}
+      {status && cacheReady && !status.cache && <div className="pv-empty"><Alert kind="info">Showing example reviews until you save your business.</Alert></div>}
       <div className={`pv-stage ${stage === 'dark' ? 'dark' : ''}`}>
         <div className={`pv-frame ${device === 'phone' ? 'phone' : device === 'tablet' ? 'tablet' : ''}`}>
-          <Preview data={previewData} settings={draft} plan={plan} lang={status?.siteLanguage ?? 'en'} />
+          {cacheReady ? (
+            <Preview data={previewData} settings={draft} plan={plan} lang={status?.siteLanguage ?? 'en'} />
+          ) : (
+            <div className="sk-card" aria-busy="true" aria-label="Loading your reviews"><Skeleton height={18} width="35%" /><Skeleton height={150} /></div>
+          )}
         </div>
       </div>
     </section>
@@ -293,7 +371,7 @@ const DashboardPage: FC = () => {
         <div className="switches">
           <Switch label="Arrows" checked={draft.show.arrows} onChange={(v) => patchShow('arrows', v)} />
           <Switch label="Dots" checked={draft.show.dots} onChange={(v) => patchShow('dots', v)} />
-          <Switch label="Move on its own" checked={draft.autoplay} onChange={(v) => patch({ autoplay: v })} />
+          <Switch label="Autoplay" checked={draft.autoplay} onChange={(v) => patch({ autoplay: v })} />
         </div>
       )}
     </Card>
@@ -311,7 +389,10 @@ const DashboardPage: FC = () => {
   );
 
   const headerCard = (
-    <Card title="Header" description="The business name, photo and rating above your reviews.">
+    <Card title="Header" description="The business name, photo and rating.">
+      <Field label="Position">
+        <Segmented label="Header position" value={draft.headerLayout} onChange={(v) => patch({ headerLayout: v })} options={HEADER_LAYOUTS.map((h) => ({ value: h, label: HEADER_LAYOUT_NAMES[h] }))} />
+      </Field>
       <div className="switches">
         {HEADER_SHOW.map(([k, label]) => (
           <Switch key={k} label={label} checked={draft.show[k]} onChange={(v) => patchShow(k, v)} />
@@ -332,10 +413,24 @@ const DashboardPage: FC = () => {
           More than 5 reviews, star filters, keywords and sorting.
         </Alert>
       )}
-      <Field label="Number of reviews" pro>
+      <Field label="Number of reviews" pro={locked}>
         <Segmented label="Number of reviews" value={locked ? 5 : draft.count} onChange={(v) => patch({ count: v })} options={COUNTS.map((c) => ({ value: c, label: String(c), locked: locked && c > 5 }))} />
+        {status?.cache && (
+          <div className="count-note" aria-live="polite">
+            {working ? (
+              <Progress>Updating your reviews. This can take up to a minute, and you can keep editing.</Progress>
+            ) : savedCount < wanted && !locked && (status.cache.totalReviews ?? Infinity) > savedCount ? (
+              <>
+                <span>You have {savedCount} reviews saved, so up to {savedCount} can show.</span>
+                <Button variant="outline" small onClick={() => void refreshNow()}>Get more reviews</Button>
+              </>
+            ) : (
+              <span>Showing up to {Math.min(wanted, savedCount)} of your {savedCount} saved reviews.</span>
+            )}
+          </div>
+        )}
       </Field>
-      <Field label="Stars to show" pro hint="Pick the ratings you want to include.">
+      <Field label="Stars to show" pro={locked} hint="Pick the ratings you want to include.">
         <div className="stars-pick">
           {[5, 4, 3, 2, 1].map((n) => (
             <button
@@ -355,13 +450,13 @@ const DashboardPage: FC = () => {
           ))}
         </div>
       </Field>
-      <Field label="Only show reviews that mention" pro hint="Type a word and press Enter. A review needs at least one of them.">
+      <Field label="Only show reviews that mention" pro={locked} hint="Type a word and press Enter. A review needs at least one of them.">
         <TagInput label="Include keywords" value={draft.include} onChange={(v) => patch({ include: v })} placeholder="e.g. friendly, clean" disabled={locked} />
       </Field>
-      <Field label="Hide reviews that mention" pro hint="Reviews with any of these words are left out.">
+      <Field label="Hide reviews that mention" pro={locked} hint="Reviews with any of these words are left out.">
         <TagInput label="Exclude keywords" value={draft.exclude} onChange={(v) => patch({ exclude: v })} placeholder="e.g. rude, slow" disabled={locked} />
       </Field>
-      <Field label="Order" pro>
+      <Field label="Order" pro={locked}>
         <Select label="Order" value={locked ? 'newest' : draft.sort} onChange={(v) => patch({ sort: v as SortKey })} disabled={locked} options={(Object.keys(SORT_NAMES) as SortKey[]).map((k) => ({ value: k, label: SORT_NAMES[k] }))} />
       </Field>
       <Switch label="Only reviews with text" checked={draft.onlyWithText} onChange={(v) => patch({ onlyWithText: v })} />
@@ -379,6 +474,35 @@ const DashboardPage: FC = () => {
         <Field label="Check mark position" hint="A small check mark meaning the review comes from Google. It does not mean Google verified the reviewer.">
           <Segmented label="Check mark position" value={draft.badgeStyle} onChange={(v) => patch({ badgeStyle: v })} options={BADGE_STYLES.map((b) => ({ value: b, label: BADGE_NAMES[b] }))} />
         </Field>
+      )}
+    </Card>
+  );
+
+  const savedReviews = status?.cache?.reviews ?? [];
+  const hideCard = (
+    <Card title="Hide reviews" description="Pick reviews you do not want to show. They stay hidden after updates.">
+      {!cacheReady ? (
+        <Progress>Loading your reviews…</Progress>
+      ) : savedReviews.length === 0 ? (
+        <Alert kind="info">Save your business first, and your reviews will be listed here.</Alert>
+      ) : (
+        <>
+          <div className="status">
+            <span>{draft.hiddenIds.length} hidden</span>
+            <Button variant="ghost" small onClick={() => patch({ hiddenIds: [] })} disabled={draft.hiddenIds.length === 0}>Show all</Button>
+          </div>
+          <ul className="hide-list">
+            {savedReviews.map((r) => (
+              <li key={r.id} className={hidden.has(r.id) ? 'is-hidden' : ''}>
+                <div className="hide-main">
+                  <strong>{r.author || 'A Google user'}</strong> <span className="hide-stars">{'\u2605'.repeat(r.rating)}</span>
+                  <div className="hide-text">{r.text || 'No written review'}</div>
+                </div>
+                <Button variant={hidden.has(r.id) ? 'default' : 'outline'} small onClick={() => toggleHidden(r.id)}>{hidden.has(r.id) ? 'Hidden' : 'Hide'}</Button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </Card>
   );
@@ -464,7 +588,9 @@ const DashboardPage: FC = () => {
           </div>
         )}
 
-        {status && tab === 'layout' && (
+        {status && tab !== 'connection' && expanded && <div className="stack wide">{previewCard}</div>}
+
+        {status && tab === 'layout' && !expanded && (
           <div className="layout">
             <div className="col">
               {templateCard}
@@ -475,10 +601,11 @@ const DashboardPage: FC = () => {
           </div>
         )}
 
-        {status && tab === 'settings' && (
+        {status && tab === 'settings' && !expanded && (
           <div className="layout">
             <div className="col">
               {whichCard}
+              {hideCard}
               {contentCard}
               {textCard}
               {colorsCard}

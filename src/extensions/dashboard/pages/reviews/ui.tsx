@@ -198,3 +198,11 @@ export const DeviceToggle: FC<{ value: 'desktop' | 'tablet' | 'phone'; onChange:
 );
 
 export const Skeleton: FC<{ height?: number; width?: string }> = ({ height = 16, width = '100%' }) => <div className="sk" style={{ height, width }} />;
+
+/** A visible "something is happening" line with a small spinner. */
+export const Progress: FC<{ children: ReactNode }> = ({ children }) => (
+  <div className="progress" role="status" aria-live="polite">
+    <span className="spin" aria-hidden="true" />
+    <span>{children}</span>
+  </div>
+);
