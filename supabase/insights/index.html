@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Reviews Insights</title>
+<!--
+  Private Insights page for Google Reviews Carousel. Open this file from your computer (double-click it); there is nothing to host.
+  It talks only to your grc-insights function, with the admin token you type in. The token is kept for this browser tab only.
+  All text that comes from the database is added as plain text, never as HTML.
+-->
+<style>
+  :root { --bg:#f4f4f5; --card:#fff; --fg:#09090b; --muted:#71717a; --line:#e4e4e7; --primary:#18181b; --ok:#16a34a; --bad:#dc2626; --radius:8px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .sub { color: var(--muted); margin: 2px 0 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px rgb(0 0 0 / .05); padding: 16px 18px; }
+  .grid { display: grid; gap: 14px; }
+  .cards { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 16px; }
+  .two { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); margin-bottom: 16px; }
+  .big { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .small { color: var(--muted); font-size: 12px; }
+  .bar { height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; margin-top: 8px; }
+  .bar > i { display: block; height: 100%; background: var(--primary); }
+  .bar.warn > i { background: var(--bad); }
+  button, input, select { font: inherit; }
+  button { height: 34px; padding: 0 14px; border-radius: var(--radius); border: 1px solid var(--line); background: #fff; cursor: pointer; font-weight: 500; }
+  button.primary { background: var(--primary); color: #fafafa; border-color: transparent; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input, select { height: 34px; border: 1px solid var(--line); border-radius: var(--radius); padding: 0 10px; background: #fff; min-width: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row > input[type=text], .row > input[type=password], .row > input[type=url] { flex: 1 1 260px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+  .pill { display: inline-block; padding: 0 8px; border-radius: 99px; font-size: 12px; font-weight: 600; background: #f4f4f5; border: 1px solid var(--line); }
+  .pill.ok { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+  .pill.bad { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+  .alert { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; }
+  .alert.high { border-color: #fecaca; background: #fef2f2; }
+  .alert b { display: block; }
+  .err { color: var(--bad); }
+  .hidden { display: none; }
+  svg.chart { width: 100%; height: 130px; display: block; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; }
+  .muted-cell { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>Reviews Insights</h1><p class="sub">Fetches, spend and problems for Google Reviews Carousel. Private to you.</p></div>
+    <div class="row"><span id="status" class="small"></span><button id="refresh" class="hidden">Refresh</button><label class="switch small hidden" id="autoWrap"><input type="checkbox" id="auto"> Refresh every minute</label></div>
+  </div>
+
+  <div class="card" id="connect" style="margin-bottom:16px">
+    <h2>Connect</h2>
+    <div class="row">
+      <input type="url" id="url" placeholder="https://YOUR_PROJECT_REF.supabase.co/functions/v1/grc-insights" aria-label="Function address">
+      <input type="password" id="token" placeholder="Admin token" aria-label="Admin token" autocomplete="off">
+      <button class="primary" id="go">Connect</button>
+    </div>
+    <p class="small" id="connectMsg" style="margin:8px 0 0">The admin token is the ADMIN_TOKEN secret you set in Supabase. It is kept for this browser tab only.</p>
+  </div>
+
+  <div id="app" class="hidden">
+    <div class="grid cards" id="cards"></div>
+
+    <div class="card" style="margin-bottom:16px"><h2>Needs attention</h2><div id="attention"></div></div>
+
+    <div class="grid two">
+      <div class="card"><h2>Spend by day (estimated)</h2><div id="chart"></div></div>
+      <div class="card"><h2>Kill switch and caps</h2>
+        <div class="row" style="margin-bottom:10px"><span class="switch"><input type="checkbox" id="enabled"> <label for="enabled">Fetching is on</label></span></div>
+        <div class="row"><label class="small">Daily cap $ <input type="number" id="dailyCap" min="0" max="10000" step="0.5" style="width:90px"></label>
+        <label class="small">Monthly cap $ <input type="number" id="monthlyCap" min="0" max="10000" step="1" style="width:90px"></label>
+        <button class="primary" id="saveControl">Save</button></div>
+        <p class="small" id="controlMsg" style="margin:8px 0 0">At a cap, routine refreshes pause. A new site's first fetch still goes through up to 1.5x the cap. Saved reviews keep showing.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="top" style="margin:0 0 8px"><h2 style="margin:0">Fetches</h2>
+        <div class="row">
+          <select id="fOutcome" aria-label="Status"><option value="">Any status</option><option>updated</option><option>empty</option><option>failed</option></select>
+          <select id="fPlan" aria-label="Plan"><option value="">Any plan</option><option>free</option><option>pro</option><option>unknown</option></select>
+          <input type="text" id="fInstance" placeholder="Site ID" aria-label="Site ID" style="width:260px">
+          <button id="apply">Apply</button></div></div>
+      <div class="scroll"><table id="fetches"></table></div>
+    </div>
+
+    <div class="grid two">
+      <div class="card"><h2>Failures by reason (7 days)</h2><div class="scroll"><table id="failures"></table></div></div>
+      <div class="card"><h2>Spend by site</h2><div class="scroll"><table id="bySite"></table></div></div>
+      <div class="card"><h2>Estimated against Apify's real cost</h2><div class="scroll"><table id="cost"></table></div><p class="small" style="margin:8px 0 0">Real cost includes any runs you made yourself with the same Apify token.</p></div>
+      <div class="card"><h2>Places used by more than one site</h2><div class="scroll"><table id="shared"></table></div></div>
+      <div class="card"><h2>Alerts emailed</h2><div class="scroll"><table id="alertsSent"></table></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var KEY_URL = 'grc-insights:url', KEY_TOKEN = 'grc-insights:token';
+  var url = '', token = '', timer = null;
+
+  // ---- small helpers that only ever add plain text ----
+  function el(tag, text, cls) { var n = document.createElement(tag); if (text != null) n.textContent = String(text); if (cls) n.className = cls; return n; }
+  function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+  function money(v, d) { var n = Number(v); return '$' + (isFinite(n) ? n.toFixed(d == null ? 4 : d) : '0'); }
+  function when(v) { if (!v) return ''; var d = new Date(v); return isFinite(d) ? d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
+  function short(id) { id = String(id || ''); return id.length > 12 ? id.slice(0, 8) + '…' : id; }
+  function table(t, cols, rows, empty) {
+    clear(t);
+    var head = el('tr'); cols.forEach(function (c) { head.appendChild(el('th', c.h, c.num ? 'num' : '')); }); var th = el('thead'); th.appendChild(head); t.appendChild(th);
+    var body = el('tbody');
+    if (!rows.length) { var r = el('tr'); var td = el('td', empty || 'Nothing yet.', 'muted-cell'); td.colSpan = cols.length; r.appendChild(td); body.appendChild(r); }
+    rows.forEach(function (row) {
+      var tr = el('tr');
+      cols.forEach(function (c) {
+        var v = c.v(row), td;
+        if (v && v.pill) { td = el('td'); td.appendChild(el('span', v.pill, 'pill ' + (v.kind || ''))); } else { td = el('td', v == null ? '' : v, c.num ? 'num' : ''); }
+        if (c.title) td.title = String(c.title(row) || '');
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    t.appendChild(body);
+  }
+
+  function call(body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-token': token }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, error: 'bad answer' }; }).then(function (j) { j.status = r.status; return j; }); });
+  }
+
+  // ---- drawing ----
+  function card(label, big, small, pct, warn) {
+    var c = el('div', null, 'card'); c.appendChild(el('div', label, 'label')); c.appendChild(el('div', big, 'big'));
+    if (small) c.appendChild(el('div', small, 'small'));
+    if (pct != null) { var b = el('div', null, 'bar' + (warn ? ' warn' : '')); var i = el('i'); i.style.width = Math.max(0, Math.min(100, pct)) + '%'; b.appendChild(i); c.appendChild(b); }
+    return c;
+  }
+  function chart(daily) {
+    var box = $('chart'); clear(box);
+    var days = (daily || []).slice(0, 14).reverse();
+    if (!days.length) { box.appendChild(el('p', 'No fetches yet.', 'small')); return; }
+    var max = Math.max.apply(null, days.map(function (d) { return Number(d.est_cost_usd) || 0; }).concat([0.0001]));
+    var ns = 'http://www.w3.org/2000/svg', W = 560, H = 120, bw = W / days.length;
+    var svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (H + 18)); svg.setAttribute('class', 'chart'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', 'Estimated spend per day');
+    days.forEach(function (d, i) {
+      var h = Math.max(1, (Number(d.est_cost_usd) / max) * H);
+      var r = document.createElementNS(ns, 'rect'); r.setAttribute('x', i * bw + 3); r.setAttribute('y', H - h); r.setAttribute('width', Math.max(2, bw - 6)); r.setAttribute('height', h); r.setAttribute('rx', 3); r.setAttribute('fill', Number(d.failed) > 0 ? '#a1a1aa' : '#18181b');
+      var t = document.createElementNS(ns, 'title'); t.textContent = d.day + ': ' + money(d.est_cost_usd) + ', ' + d.fetches + ' fetches, ' + d.failed + ' failed'; r.appendChild(t); svg.appendChild(r);
+      if (i % Math.ceil(days.length / 7) === 0) { var x = document.createElementNS(ns, 'text'); x.setAttribute('x', i * bw + 3); x.setAttribute('y', H + 14); x.setAttribute('font-size', '10'); x.setAttribute('fill', '#71717a'); x.textContent = String(d.day).slice(5); svg.appendChild(x); }
+    });
+    box.appendChild(svg);
+    box.appendChild(el('p', 'Today and earlier, newest at the right. Grey bars had failures. Highest day: ' + money(max) + '.', 'small'));
+  }
+
+  function draw(d) {
+    var t = d.today || {}, c = d.control || {};
+    var dayPct = t.daily_cap_usd > 0 ? (t.spent_today_usd / t.daily_cap_usd) * 100 : 0, monPct = t.monthly_cap_usd > 0 ? (t.spent_month_usd / t.monthly_cap_usd) * 100 : 0;
+    var todayRow = (d.daily || [])[0] && String(d.daily[0].day) === new Date().toISOString().slice(0, 10) ? d.daily[0] : null;
+    var skipsToday = (d.skips || []).filter(function (s) { return s.day === new Date().toISOString().slice(0, 10); }).reduce(function (a, s) { return a + (Number(s.count) || 0); }, 0);
+    var sc = d.siteCounts || {};
+    var cards = $('cards'); clear(cards);
+    cards.appendChild(card('Spent today', money(t.spent_today_usd, 3), 'of ' + money(t.daily_cap_usd, 2) + ' daily cap', dayPct, dayPct >= 80));
+    cards.appendChild(card('Spent this month', money(t.spent_month_usd, 3), 'of ' + money(t.monthly_cap_usd, 2) + ' monthly cap', monPct, monPct >= 80));
+    cards.appendChild(card('Fetches today', todayRow ? todayRow.fetches : 0, (todayRow ? todayRow.failed : 0) + ' failed'));
+    cards.appendChild(card('Fetches avoided today', skipsToday, 'saved copies were fresh, or the rules said wait'));
+    cards.appendChild(card('Sites', (sc.free || 0) + (sc.pro || 0) + (sc.unknown || 0), (sc.pro || 0) + ' Pro, ' + (sc.free || 0) + ' Free'));
+    cards.appendChild(card('Fetching', c.fetch_enabled === false ? 'OFF' : 'On', c.fetch_enabled === false ? 'Kill switch is on' : 'Normal'));
+
+    var att = $('attention'); clear(att);
+    var now = d.alertsNow || [];
+    if (!now.length) att.appendChild(el('p', 'All clear. No alert rule is firing.', 'small'));
+    now.forEach(function (a) { var box = el('div', null, 'alert ' + (a.severity === 'high' ? 'high' : '')); box.appendChild(el('b', a.subject)); box.appendChild(el('span', a.body, 'small')); att.appendChild(box); });
+
+    chart(d.daily);
+    $('enabled').checked = c.fetch_enabled !== false; $('dailyCap').value = c.daily_cap_usd != null ? c.daily_cap_usd : ''; $('monthlyCap').value = c.monthly_cap_usd != null ? c.monthly_cap_usd : '';
+
+    table($('fetches'), [
+      { h: 'Started', v: function (r) { return when(r.started_at); } },
+      { h: 'Status', v: function (r) { return { pill: r.outcome, kind: r.outcome === 'failed' ? 'bad' : r.outcome === 'updated' ? 'ok' : '' }; } },
+      { h: 'Place', v: function (r) { return r.place_name || short(r.place_id); }, title: function (r) { return r.place_id; } },
+      { h: 'Site', v: function (r) { return short(r.instance_id); }, title: function (r) { return r.instance_id; } },
+      { h: 'Plan', v: function (r) { return r.plan; } },
+      { h: 'Why', v: function (r) { return String(r.origin || '').replace('_', ' '); } },
+      { h: 'Asked', v: function (r) { return r.requested; }, num: true },
+      { h: 'Got', v: function (r) { return r.returned; }, num: true },
+      { h: 'Kept', v: function (r) { return r.kept; }, num: true },
+      { h: 'Cost', v: function (r) { return money(r.est_cost_usd, 4); }, num: true },
+      { h: 'Time', v: function (r) { return r.duration_ms != null ? (r.duration_ms / 1000).toFixed(1) + ' s' : ''; }, num: true },
+      { h: 'Error', v: function (r) { return r.error_class || ''; }, title: function (r) { return r.error_detail; } }
+    ], d.fetches || [], 'No fetches match.');
+    table($('failures'), [{ h: 'Reason', v: function (r) { return r.error_class || 'unknown'; } }, { h: 'Times', v: function (r) { return r.times; }, num: true }, { h: 'Last seen', v: function (r) { return when(r.last_seen); } }], d.failures || [], 'No failures in 7 days.');
+    table($('bySite'), [{ h: 'Site', v: function (r) { return short(r.instance_id); }, title: function (r) { return r.instance_id; } }, { h: 'Plan', v: function (r) { return r.plan || ''; } }, { h: 'Fetches', v: function (r) { return r.fetches; }, num: true }, { h: 'Failed', v: function (r) { return r.failed; }, num: true }, { h: 'Cost', v: function (r) { return money(r.est_cost_usd); }, num: true }], d.bySite || []);
+    table($('cost'), [{ h: 'Day', v: function (r) { return r.day; } }, { h: 'Estimated', v: function (r) { return money(r.estimated_usd); }, num: true }, { h: 'Apify', v: function (r) { return money(r.actual_usd); }, num: true }, { h: 'Runs', v: function (r) { return r.apify_runs; }, num: true }, { h: 'Gap', v: function (r) { return r.drift_percent == null ? '' : r.drift_percent + '%'; }, num: true }], d.costCheck || [], 'Nothing yet. The nightly check fills this in.');
+    table($('shared'), [{ h: 'Place', v: function (r) { return r.place_name || short(r.place_id); }, title: function (r) { return r.place_id; } }, { h: 'Sites', v: function (r) { return r.sites; }, num: true }, { h: 'Fetches', v: function (r) { return r.fetches; }, num: true }], d.shared || [], 'No place is used by more than one site.');
+    table($('alertsSent'), [{ h: 'Alert', v: function (r) { return r.last_subject || r.key; } }, { h: 'Sent', v: function (r) { return when(r.last_sent_at); } }], d.alertsSent || [], 'No alert emails sent yet.');
+  }
+
+  function filters() { return { outcome: $('fOutcome').value, plan: $('fPlan').value, instance: $('fInstance').value }; }
+  function load() {
+    $('status').textContent = 'Loading…';
+    return call({ action: 'summary', filters: filters() }).then(function (d) {
+      if (d.status === 401) { $('status').textContent = ''; $('connectMsg').textContent = 'That token was not accepted.'; $('connectMsg').className = 'small err'; showApp(false); return; }
+      if (!d.ok) { $('status').textContent = 'Could not load: ' + (d.error || 'unknown problem'); return; }
+      draw(d); $('status').textContent = 'Updated ' + new Date().toLocaleTimeString(); showApp(true);
+    }).catch(function () { $('status').textContent = 'Could not reach the function. Check the address.'; });
+  }
+  function showApp(on) { $('app').className = on ? '' : 'hidden'; $('refresh').className = on ? '' : 'hidden'; $('autoWrap').className = 'switch small' + (on ? '' : ' hidden'); $('connect').className = 'card' + (on ? ' hidden' : ''); }
+
+  $('go').onclick = function () {
+    url = $('url').value.trim(); token = $('token').value;
+    if (!/^https:\/\/.+/.test(url) || !token) { $('connectMsg').textContent = 'Enter the function address (https://…) and the admin token.'; $('connectMsg').className = 'small err'; return; }
+    try { localStorage.setItem(KEY_URL, url); sessionStorage.setItem(KEY_TOKEN, token); } catch (e) {}
+    $('connectMsg').className = 'small'; $('connectMsg').textContent = 'Connecting…'; load();
+  };
+  $('refresh').onclick = load; $('apply').onclick = load;
+  $('auto').onchange = function () { clearInterval(timer); if ($('auto').checked) timer = setInterval(load, 60000); };
+  $('saveControl').onclick = function () {
+    var body = { action: 'set_control', fetch_enabled: $('enabled').checked, daily_cap_usd: parseFloat($('dailyCap').value), monthly_cap_usd: parseFloat($('monthlyCap').value) };
+    $('controlMsg').textContent = 'Saving…';
+    call(body).then(function (d) { $('controlMsg').textContent = d.ok ? 'Saved. It applies to the next fetch.' : 'Not saved: ' + (d.error || 'unknown problem'); if (d.ok) load(); });
+  };
+  try { $('url').value = localStorage.getItem(KEY_URL) || ''; var t = sessionStorage.getItem(KEY_TOKEN); if (t) $('token').value = t; if ($('url').value && t) $('go').click(); } catch (e) {}
+})();
+</script>
+</body>
+</html>

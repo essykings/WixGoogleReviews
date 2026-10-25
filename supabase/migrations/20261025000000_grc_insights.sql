@@ -16,7 +16,7 @@ create table if not exists public.grc_fetches (
   plan          text        not null check (plan in ('free', 'pro', 'unknown')),
   place_id      text        not null,
   place_name    text        not null default '',
-  origin        text        not null check (origin in ('first_save', 'owner_refresh', 'dashboard', 'visit')),
+  origin        text        not null check (origin in ('first_save', 'top_up', 'owner_refresh', 'dashboard', 'visit')),
   outcome       text        not null check (outcome in ('updated', 'empty', 'failed')),
   requested     integer     not null default 0,
   returned      integer     not null default 0,
