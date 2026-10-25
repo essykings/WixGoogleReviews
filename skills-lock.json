@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "skills": {
+    "wix-app": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "d9041f0135c1856ddf99f04f1a33a6fda60bac23119099e10703e793391bb72e"
+    },
+    "wix-base44-connector": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "97281b2bc413531c2fc05d12a70bd7d5e83c86d8dd448e8608fa50d7a61a8603"
+    },
+    "wix-design-system": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "47da8b5791959362c730a630c9893473a7e7fa645bbe93b63b306df2ddccbbaf"
+    },
+    "wix-docs": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "707412d644d9c0828d30e03649d4a44addeef244b9c2fee65f1f8d9184f53b96"
+    },
+    "wix-export": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "c01dd2411b412996dba259d77be1e24746e6a75da887f5aa4ab73d973326f38f"
+    },
+    "wix-harmony-editor": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "321789877ce47d6fe0b2af55b04bbbfa4e5321d2556251ace5a67a4be65c920a"
+    },
+    "wix-headless": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "b599f79e487e0df0be5ab2a7929216bf0dbd31f63db5245964fea08e753b0714"
+    },
+    "wix-headless-kit": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "01ce404addb68e2486814e63b0f0b253c6a5baeb77344d5280230d7176f61a2b"
+    },
+    "wix-headless-replatform": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "3035db6572a8c82d814e865381893bbb8fa2fe92ed4625455008af1f9ae4987f"
+    },
+    "wix-headless-templates": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "f2164af9b1476622ddb28cd46dbd44794026509be53a1b63267c116699dbe900"
+    },
+    "wix-import": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "b3f388a7dee8db917591157b12939507bd9cdc28bce55349252d5026e0209337"
+    },
+    "wix-manage": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "68ef941fefa4bb4af360a69673d70d1ba2365e74cb540b4d5f5b926925941789"
+    },
+    "wix-replatform": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "d7b229f23c54a314039d395c2658e4123b97a47897fd4366f2bf9bc1d24d8f89"
+    },
+    "wix-vibe-headless": {
+      "source": "./node_modules/@wix/agent-skills",
+      "sourceType": "local",
+      "computedHash": "3a082d81380e15954d5b38c8fa1c324229a33b6c51fef6dcb88df15991d4132f"
+    }
+  }
+}
