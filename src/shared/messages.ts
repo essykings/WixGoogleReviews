@@ -1,0 +1,41 @@
+// Plain-English wording for the dashboard. Pure, so it is unit-tested. Owners are not developers: no codes, no jargon.
+
+import type { SyncResult } from './sync-core';
+import type { Plan } from './plan';
+
+export interface Notice {
+  kind: 'success' | 'warning' | 'danger' | 'standard';
+  text: string;
+}
+
+export function noticeForResult(result: SyncResult | undefined): Notice {
+  switch (result?.status) {
+    case 'updated':
+      return { kind: 'success', text: `Done. We found ${result.reviews} review${result.reviews === 1 ? '' : 's'} for your business.` };
+    case 'empty':
+      return { kind: 'warning', text: 'We saved your place, but Google shows no reviews for it yet.' };
+    case 'fresh':
+      return { kind: 'standard', text: 'Your reviews are already up to date.' };
+    case 'wait':
+      return { kind: 'warning', text: 'We just tried a moment ago. Please wait about an hour before trying again.' };
+    case 'limit':
+      return { kind: 'warning', text: 'You have reached this month’s update limit. It resets automatically.' };
+    case 'paused':
+      return { kind: 'warning', text: 'Updates are paused for a little while. Your saved reviews keep showing. Please try again later.' };
+    case 'no_place':
+      return { kind: 'warning', text: 'Add your Place ID first.' };
+    case 'error':
+      return { kind: 'danger', text: result.detail ? `${result.message} (Test details: ${result.detail})` : result.message };
+    default:
+      return { kind: 'danger', text: 'Something went wrong. Please try again.' };
+  }
+}
+
+export function planLabel(plan: Plan | undefined): string {
+  return plan === 'free' ? 'Free plan' : plan === 'pro' ? 'Pro plan' : 'Plan not checked';
+}
+
+export function formatWhen(ms: number | null | undefined): string {
+  if (!ms) return 'never';
+  return new Date(ms).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+}
