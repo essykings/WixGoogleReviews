@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
 import { registeredPlaceFor } from '../../shared/cache-rules';
-import { describeError } from '../../shared/errors';
 import { readInstance } from '../../shared/instance';
 import { resolveShortLink } from '../../shared/maps-url';
 import { PLACE_HELP, parsePlaceInput } from '../../shared/place';
@@ -8,6 +7,7 @@ import { planOf } from '../../shared/plan';
 import { shouldAskForReview } from '../../shared/review-prompt';
 import { activateOnly, loadCacheFor, loadPlace, loadPlaceRecord, savePlace, siteData } from '../../shared/store';
 import { syncSite } from '../../shared/sync';
+import { recordSiteSeen } from '../../shared/touch';
 
 /**
  * The owner saves their business: a Google Maps link (or a share link, which is followed to the full one) or a Place ID.
@@ -50,9 +50,11 @@ export const POST: APIRoute = async ({ request }) => {
     // second save (or a second tab) never asks again.
     const askForReview = !!saved && shouldAskForReview(result.status, saved.reviewAskedAt);
     if (askForReview && saved) await savePlace(data, { ...saved, reviewAskedAt: Date.now() });
+    // A site that connects a business is recorded now, so support can find it even if the owner never opens the dashboard again.
+    await recordSiteSeen(info, planOf(info));
     return Response.json({ ok: true, placeId: saved?.placeId ?? '', placeUrl: saved?.placeUrl ?? '', result, askForReview });
   } catch (error) {
     console.error('register-place failed', error);
-    return Response.json({ ok: false, message: 'Could not save your business. Please try again.', detail: describeError(error) }, { status: 500 });
+    return Response.json({ ok: false, message: 'Could not save your business. Please try again.' }, { status: 500 });
   }
 };

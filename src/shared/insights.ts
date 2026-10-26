@@ -125,6 +125,21 @@ export interface SiteTouch {
   placeId: string;
   savedPlaces: number;
   settingsSaved: boolean;
+  /** For support only: who to talk to about this site. Optional, and empty when Wix did not give it. */
+  ownerEmail?: string;
+  siteUrl?: string;
+  siteName?: string;
+}
+
+const EMAIL_SHAPE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/;
+
+/** A support detail made safe to store: trimmed, capped, and empty if it is not usable. */
+export function cleanContact(kind: 'email' | 'url' | 'name', value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const v = value.replace(/[\u0000-\u001f\u007f]/g, ' ').trim();
+  if (kind === 'email') return v.length <= 200 && EMAIL_SHAPE.test(v) ? v.toLowerCase() : '';
+  if (kind === 'url') return /^https?:\/\//i.test(v) ? v.slice(0, 300) : '';
+  return v.slice(0, 120);
 }
 
 export function buildSitePayload(t: SiteTouch) {
@@ -135,5 +150,8 @@ export function buildSitePayload(t: SiteTouch) {
     place_id: t.placeId.slice(0, 100),
     saved_places: Math.max(0, Math.min(99, Math.floor(t.savedPlaces))),
     settings_saved: t.settingsSaved,
+    owner_email: cleanContact('email', t.ownerEmail),
+    site_url: cleanContact('url', t.siteUrl),
+    site_name: cleanContact('name', t.siteName),
   };
 }

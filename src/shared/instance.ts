@@ -9,6 +9,10 @@ export interface InstanceInfo {
   packageName?: string;
   isFree?: boolean;
   siteLanguage?: string;
+  /** Support details, only for the back office (see insights.ts). Never sent to the browser. */
+  ownerEmail?: string;
+  siteUrl?: string;
+  siteName?: string;
 }
 
 function pick(data: any): InstanceInfo {
@@ -17,6 +21,9 @@ function pick(data: any): InstanceInfo {
     packageName: data?.instance?.billing?.packageName,
     isFree: data?.instance?.isFree,
     siteLanguage: data?.site?.locale,
+    ownerEmail: data?.site?.ownerInfo?.email,
+    siteUrl: data?.site?.url,
+    siteName: data?.site?.siteDisplayName,
   };
 }
 
@@ -47,5 +54,14 @@ export async function readInstance(): Promise<InstanceInfo> {
   const first = await readFirst();
   if (!first.instanceId) return first;
   const latest = await readFresh(first.instanceId);
-  return latest ? { ...first, ...latest, instanceId: first.instanceId } : first;
+  if (!latest) return first;
+  // The fresh read wins, but a missing support detail never blanks one the first read had.
+  return {
+    ...first,
+    ...latest,
+    instanceId: first.instanceId,
+    ownerEmail: latest.ownerEmail ?? first.ownerEmail,
+    siteUrl: latest.siteUrl ?? first.siteUrl,
+    siteName: latest.siteName ?? first.siteName,
+  };
 }

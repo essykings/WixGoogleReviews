@@ -1,7 +1,7 @@
 // Supabase Edge Function: the back office's write door for the Google Reviews Carousel Wix app.
 //
 // POST with header x-insights-token. Body is one of:
-//   { type: "fetch", ... }  one provider fetch attempt (see grc_fetches)
+//   { type: "fetch", ... }  one provider fetch attempt (see grc_fetches); a failed one also triggers an alert check
 //   { type: "count", counter }  add one to today's counter (skips and pauses)
 //   { type: "site", ... }   a site was seen (see grc_sites)
 //   { type: "forget", instance_id }  the app was removed from a site: delete its rows
@@ -20,6 +20,23 @@ const OUTCOMES = ["updated", "empty", "failed"]
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
   auth: { persistSession: false },
 })
+
+/** Asks grc-alerts to check its rules now (it sends only what is due, so calling it often is safe). Never throws. */
+function runAlertCheck() {
+  const task = fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/grc-alerts`, {
+    method: "POST",
+    headers: { "x-insights-token": TOKEN, "Content-Type": "application/json" },
+    body: "{}",
+    signal: AbortSignal.timeout(20000),
+  }).catch(() => {})
+  // Keeps the function alive until the call is on its way, without making the caller wait.
+  try {
+    // @ts-ignore EdgeRuntime exists on Supabase's runtime
+    EdgeRuntime.waitUntil(task)
+  } catch {
+    // not on Supabase's runtime: the call still goes out
+  }
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } })
@@ -76,6 +93,9 @@ Deno.serve(async (req) => {
         p_place: str(body.place_id, 100),
         p_saved: int(body.saved_places, 99),
         p_settings: body.settings_saved === true,
+        p_owner_email: str(body.owner_email, 200),
+        p_site_url: str(body.site_url, 300),
+        p_site_name: str(body.site_name, 120),
       })
       return json({ ok: !error })
     }
@@ -108,6 +128,8 @@ Deno.serve(async (req) => {
         error_class: str(body.error_class, 40) || null,
         error_detail: str(body.error_detail, 300) || null,
       })
+      // A failed fetch is worth an email now, not at the next 15-minute check. Fire and forget: logging must never be slowed by it.
+      if (!error && outcome === "failed") runAlertCheck()
       return json({ ok: !error })
     }
 

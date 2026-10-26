@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { askBrake, buildCountPayload, buildFetchPayload, buildSitePayload, callInsights, classifyError, estimateCostUsd, parseOrigin, type FetchLog } from '../src/shared/insights';
+import { askBrake, buildCountPayload, buildFetchPayload, buildSitePayload, callInsights, cleanContact, classifyError, estimateCostUsd, parseOrigin, type FetchLog } from '../src/shared/insights';
 import { syncReviews, type SyncDeps } from '../src/shared/sync-core';
 import type { RegisteredPlace } from '../src/shared/store-types';
 
@@ -122,5 +122,23 @@ describe('syncReviews with the back office', () => {
     const { deps } = make({ providerReady: () => false, allow });
     expect((await syncReviews(deps, { plan: 'pro' }, NOW)).status).toBe('error');
     expect(allow).not.toHaveBeenCalled();
+  });
+});
+
+describe('support details on a site record', () => {
+  const base = { instanceId: 'i', plan: 'pro' as const, placeId: 'p', savedPlaces: 1, settingsSaved: true };
+  it('sends them tidied, and empty when Wix did not give them', () => {
+    const full = buildSitePayload({ ...base, ownerEmail: '  Owner@Example.COM ', siteUrl: 'https://shop.example.com/x', siteName: 'My Shop' });
+    expect(full).toMatchObject({ owner_email: 'owner@example.com', site_url: 'https://shop.example.com/x', site_name: 'My Shop' });
+    expect(buildSitePayload(base)).toMatchObject({ owner_email: '', site_url: '', site_name: '' });
+  });
+  it('drops values that are not usable instead of storing them', () => {
+    expect(cleanContact('email', 'not an email')).toBe('');
+    expect(cleanContact('email', 'a@b')).toBe('');
+    expect(cleanContact('email', 42)).toBe('');
+    expect(cleanContact('url', 'javascript:alert(1)')).toBe('');
+    expect(cleanContact('url', 'http://x.test/' + 'a'.repeat(500)).length).toBe(300);
+    expect(cleanContact('name', 'Line\nBreak\u0000Shop'.repeat(30)).length).toBeLessThanOrEqual(120);
+    expect(cleanContact('name', 'Line\nBreak')).toBe('Line Break');
   });
 });

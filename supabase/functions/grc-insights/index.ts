@@ -2,6 +2,8 @@
 //
 // POST with header x-admin-token (a separate secret from the app's token; only you have it). Body:
 //   { action: "summary", filters?: { outcome?, plan?, instance? } }  everything the page shows
+//   { action: "find_sites", query }  sites matching an email, site address, name or instance ID
+//   { action: "site", instance }  one site's details and its recent fetches
 //   { action: "set_control", fetch_enabled?, daily_cap_usd?, monthly_cap_usd? }  the kill switch and the spend caps
 //
 // Secrets: ADMIN_TOKEN. Deploy with --no-verify-jwt. (Supabase does not serve web pages from functions, so the page itself
@@ -9,6 +11,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { CORS_HEADERS, sameToken } from "../_shared/auth.ts"
 import { parseControl } from "../_shared/control.ts"
+import { cleanSiteQuery } from "../_shared/search.ts"
 
 const ADMIN_TOKEN = Deno.env.get("ADMIN_TOKEN") ?? ""
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } })
@@ -37,6 +40,35 @@ Deno.serve(async (req) => {
       if (!parsed.ok) return json({ ok: false, error: parsed.message }, 400)
       const { error } = await supabase.from("grc_control").update({ ...parsed.change, updated_at: new Date().toISOString() }).eq("id", true)
       return json({ ok: !error })
+    }
+
+    const SITE_COLUMNS = "instance_id,first_seen,last_seen,plan,plan_changed_at,place_id,saved_places,settings_saved,owner_email,site_url,site_name"
+    if (body?.action === "find_sites") {
+      const q = cleanSiteQuery(body.query)
+      if (!q) return json({ ok: false, error: "Type at least 3 characters." }, 400)
+      const { data, error } = await supabase
+        .from("grc_sites")
+        .select(SITE_COLUMNS)
+        .or(`owner_email.ilike.%${q}%,site_url.ilike.%${q}%,site_name.ilike.%${q}%,instance_id.ilike.${q}%`)
+        .order("last_seen", { ascending: false })
+        .limit(20)
+      return error ? json({ ok: false, error: "search failed" }, 500) : json({ ok: true, sites: data ?? [] })
+    }
+
+    if (body?.action === "site") {
+      const instance = typeof body.instance === "string" ? body.instance.trim().slice(0, 64) : ""
+      if (!instance) return json({ ok: false, error: "no site given" }, 400)
+      const [site, recent] = await Promise.all([
+        supabase.from("grc_sites").select(SITE_COLUMNS).eq("instance_id", instance).maybeSingle(),
+        supabase.from("grc_fetches").select("id,started_at,duration_ms,instance_id,plan,place_id,place_name,origin,outcome,requested,returned,kept,est_cost_usd,error_class,error_detail").eq("instance_id", instance).order("started_at", { ascending: false }).limit(50),
+      ])
+      const rows = recent.data ?? []
+      return json({
+        ok: true,
+        site: site.data,
+        recent: rows,
+        totals: { fetches: rows.length, failed: rows.filter((r) => r.outcome === "failed").length, est_cost_usd: rows.reduce((a, r) => a + (Number(r.est_cost_usd) || 0), 0) },
+      })
     }
 
     if (body?.action === "summary") {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { emailSettings, renderAlertEmail } from '../supabase/functions/_shared/alerts';
+import { cleanSiteQuery } from '../supabase/functions/_shared/search';
+import { describeSendFailure, emailSettings, renderAlertEmail } from '../supabase/functions/_shared/alerts';
 import { ACTOR, mapRun, runsUrl } from '../supabase/functions/_shared/apify';
 import { sameToken } from '../supabase/functions/_shared/auth';
 import { parseControl } from '../supabase/functions/_shared/control';
@@ -65,5 +66,36 @@ describe('parseControl (what the Insights page may change)', () => {
   });
   it('ignores fields it does not know', () => {
     expect(parseControl({ fetch_enabled: true, id: false, note: 'x' })).toEqual({ ok: true, change: { fetch_enabled: true } });
+  });
+});
+
+describe('describeSendFailure (why an alert email was refused)', () => {
+  it('passes on the reason Resend gave, and adds a hint for the usual causes', () => {
+    const forbidden = describeSendFailure(403, JSON.stringify({ statusCode: 403, message: 'You can only send testing emails to your own email address.', name: 'validation_error' }));
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.reason).toContain('only send testing emails to your own email address');
+    expect(forbidden.reason).toContain('verified');
+    expect(describeSendFailure(401, '{"message":"API key is invalid"}').reason).toContain('API key is invalid');
+    expect(describeSendFailure(422, '{"message":"Invalid `to` field"}').reason).toContain('sender and recipient');
+  });
+  it('copes with non-JSON, empty and very long answers, and keeps it short', () => {
+    expect(describeSendFailure(500, 'Bad gateway').reason).toBe('Bad gateway');
+    expect(describeSendFailure(500, '').reason).toBe('no reason given');
+    expect(describeSendFailure(500, 'x'.repeat(2000)).reason.length).toBeLessThanOrEqual(200);
+  });
+});
+
+describe('cleanSiteQuery (the support search box)', () => {
+  it('keeps emails, addresses and names searchable', () => {
+    expect(cleanSiteQuery('  Owner@Example.com ')).toBe('Owner@Example.com');
+    expect(cleanSiteQuery('https://shop.example.com/x-1')).toBe('https://shop.example.com/x-1');
+  });
+  it('removes characters that could change the database filter, and refuses very short searches', () => {
+    expect(cleanSiteQuery('a,b)or(c.eq.1')).not.toMatch(/[,()]/);
+    expect(cleanSiteQuery('100% "sure"_')).not.toMatch(/[%"_]/);
+    expect(cleanSiteQuery('ab')).toBe('');
+    expect(cleanSiteQuery('%%%')).toBe('');
+    expect(cleanSiteQuery(42)).toBe('');
+    expect(cleanSiteQuery('x'.repeat(500)).length).toBe(100);
   });
 });

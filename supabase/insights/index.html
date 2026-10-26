@@ -88,6 +88,21 @@
     </div>
 
     <div class="card" style="margin-bottom:16px">
+      <h2>Find a site</h2>
+      <div class="row">
+        <input type="text" id="siteQuery" placeholder="Owner email, site address, business name or site ID" aria-label="Find a site">
+        <button class="primary" id="siteSearch">Search</button>
+      </div>
+      <p class="small" id="siteMsg" style="margin:8px 0 0">Type at least 3 characters. Click a result to see that site's details and recent fetches.</p>
+      <div class="scroll"><table id="siteResults"></table></div>
+      <div id="siteDetail" class="hidden" style="margin-top:14px">
+        <h2 id="siteTitle" style="margin-bottom:4px"></h2>
+        <p class="small" id="siteFacts" style="margin:0 0 8px"></p>
+        <div class="scroll"><table id="siteFetches"></table></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
       <div class="top" style="margin:0 0 8px"><h2 style="margin:0">Fetches</h2>
         <div class="row">
           <select id="fOutcome" aria-label="Status"><option value="">Any status</option><option>updated</option><option>empty</option><option>failed</option></select>
@@ -119,13 +134,14 @@
   function money(v, d) { var n = Number(v); return '$' + (isFinite(n) ? n.toFixed(d == null ? 4 : d) : '0'); }
   function when(v) { if (!v) return ''; var d = new Date(v); return isFinite(d) ? d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''; }
   function short(id) { id = String(id || ''); return id.length > 12 ? id.slice(0, 8) + '…' : id; }
-  function table(t, cols, rows, empty) {
+  function table(t, cols, rows, empty, onRow) {
     clear(t);
     var head = el('tr'); cols.forEach(function (c) { head.appendChild(el('th', c.h, c.num ? 'num' : '')); }); var th = el('thead'); th.appendChild(head); t.appendChild(th);
     var body = el('tbody');
     if (!rows.length) { var r = el('tr'); var td = el('td', empty || 'Nothing yet.', 'muted-cell'); td.colSpan = cols.length; r.appendChild(td); body.appendChild(r); }
     rows.forEach(function (row) {
       var tr = el('tr');
+      if (onRow) { tr.style.cursor = 'pointer'; tr.onclick = function () { onRow(row); }; }
       cols.forEach(function (c) {
         var v = c.v(row), td;
         if (v && v.pill) { td = el('td'); td.appendChild(el('span', v.pill, 'pill ' + (v.kind || ''))); } else { td = el('td', v == null ? '' : v, c.num ? 'num' : ''); }
@@ -166,6 +182,21 @@
     box.appendChild(el('p', 'Today and earlier, newest at the right. Grey bars had failures. Highest day: ' + money(max) + '.', 'small'));
   }
 
+  var fetchCols = [
+      { h: 'Started', v: function (r) { return when(r.started_at); } },
+      { h: 'Status', v: function (r) { return { pill: r.outcome, kind: r.outcome === 'failed' ? 'bad' : r.outcome === 'updated' ? 'ok' : '' }; } },
+      { h: 'Place', v: function (r) { return r.place_name || short(r.place_id); }, title: function (r) { return r.place_id; } },
+      { h: 'Site', v: function (r) { return short(r.instance_id); }, title: function (r) { return r.instance_id; } },
+      { h: 'Plan', v: function (r) { return r.plan; } },
+      { h: 'Why', v: function (r) { return String(r.origin || '').replace('_', ' '); } },
+      { h: 'Asked', v: function (r) { return r.requested; }, num: true },
+      { h: 'Got', v: function (r) { return r.returned; }, num: true },
+      { h: 'Kept', v: function (r) { return r.kept; }, num: true },
+      { h: 'Cost', v: function (r) { return money(r.est_cost_usd, 4); }, num: true },
+      { h: 'Time', v: function (r) { return r.duration_ms != null ? (r.duration_ms / 1000).toFixed(1) + ' s' : ''; }, num: true },
+      { h: 'Error', v: function (r) { return r.error_class || ''; }, title: function (r) { return r.error_detail; } }
+  ];
+
   function draw(d) {
     var t = d.today || {}, c = d.control || {};
     var dayPct = t.daily_cap_usd > 0 ? (t.spent_today_usd / t.daily_cap_usd) * 100 : 0, monPct = t.monthly_cap_usd > 0 ? (t.spent_month_usd / t.monthly_cap_usd) * 100 : 0;
@@ -188,20 +219,7 @@
     chart(d.daily);
     $('enabled').checked = c.fetch_enabled !== false; $('dailyCap').value = c.daily_cap_usd != null ? c.daily_cap_usd : ''; $('monthlyCap').value = c.monthly_cap_usd != null ? c.monthly_cap_usd : '';
 
-    table($('fetches'), [
-      { h: 'Started', v: function (r) { return when(r.started_at); } },
-      { h: 'Status', v: function (r) { return { pill: r.outcome, kind: r.outcome === 'failed' ? 'bad' : r.outcome === 'updated' ? 'ok' : '' }; } },
-      { h: 'Place', v: function (r) { return r.place_name || short(r.place_id); }, title: function (r) { return r.place_id; } },
-      { h: 'Site', v: function (r) { return short(r.instance_id); }, title: function (r) { return r.instance_id; } },
-      { h: 'Plan', v: function (r) { return r.plan; } },
-      { h: 'Why', v: function (r) { return String(r.origin || '').replace('_', ' '); } },
-      { h: 'Asked', v: function (r) { return r.requested; }, num: true },
-      { h: 'Got', v: function (r) { return r.returned; }, num: true },
-      { h: 'Kept', v: function (r) { return r.kept; }, num: true },
-      { h: 'Cost', v: function (r) { return money(r.est_cost_usd, 4); }, num: true },
-      { h: 'Time', v: function (r) { return r.duration_ms != null ? (r.duration_ms / 1000).toFixed(1) + ' s' : ''; }, num: true },
-      { h: 'Error', v: function (r) { return r.error_class || ''; }, title: function (r) { return r.error_detail; } }
-    ], d.fetches || [], 'No fetches match.');
+    table($('fetches'), fetchCols, d.fetches || [], 'No fetches match.');
     table($('failures'), [{ h: 'Reason', v: function (r) { return r.error_class || 'unknown'; } }, { h: 'Times', v: function (r) { return r.times; }, num: true }, { h: 'Last seen', v: function (r) { return when(r.last_seen); } }], d.failures || [], 'No failures in 7 days.');
     table($('bySite'), [{ h: 'Site', v: function (r) { return short(r.instance_id); }, title: function (r) { return r.instance_id; } }, { h: 'Plan', v: function (r) { return r.plan || ''; } }, { h: 'Fetches', v: function (r) { return r.fetches; }, num: true }, { h: 'Failed', v: function (r) { return r.failed; }, num: true }, { h: 'Cost', v: function (r) { return money(r.est_cost_usd); }, num: true }], d.bySite || []);
     table($('cost'), [{ h: 'Day', v: function (r) { return r.day; } }, { h: 'Estimated', v: function (r) { return money(r.estimated_usd); }, num: true }, { h: 'Apify', v: function (r) { return money(r.actual_usd); }, num: true }, { h: 'Runs', v: function (r) { return r.apify_runs; }, num: true }, { h: 'Gap', v: function (r) { return r.drift_percent == null ? '' : r.drift_percent + '%'; }, num: true }], d.costCheck || [], 'Nothing yet. The nightly check fills this in.');
@@ -226,6 +244,36 @@
     try { localStorage.setItem(KEY_URL, url); sessionStorage.setItem(KEY_TOKEN, token); } catch (e) {}
     $('connectMsg').className = 'small'; $('connectMsg').textContent = 'Connecting…'; load();
   };
+  function contact(s) { return [s.owner_email, s.site_url].filter(Boolean).join('  ·  '); }
+  function showSite(s) {
+    $('siteMsg').textContent = 'Loading…';
+    call({ action: 'site', instance: s.instance_id }).then(function (d) {
+      if (!d.ok) { $('siteMsg').textContent = 'Could not load that site: ' + (d.error || 'unknown problem'); return; }
+      var x = d.site || s, t = d.totals || {};
+      $('siteTitle').textContent = x.site_name || x.site_url || 'Site ' + short(x.instance_id);
+      $('siteFacts').textContent = [x.owner_email || 'no email yet', x.site_url || 'no site address yet', 'ID ' + x.instance_id, x.plan + ' plan', 'first seen ' + when(x.first_seen), 'last seen ' + when(x.last_seen), x.saved_places + ' saved place(s)', 'last ' + (t.fetches || 0) + ' fetches: ' + (t.failed || 0) + ' failed, ' + money(t.est_cost_usd) + ' estimated'].join('  ·  ');
+      table($('siteFetches'), fetchCols, d.recent || [], 'This site has no fetches logged.');
+      $('siteDetail').className = ''; $('siteMsg').textContent = 'Showing one site. Search again to look at another.';
+    });
+  }
+  function searchSites() {
+    $('siteMsg').textContent = 'Searching…'; $('siteDetail').className = 'hidden';
+    call({ action: 'find_sites', query: $('siteQuery').value }).then(function (d) {
+      if (!d.ok) { $('siteMsg').textContent = d.error || 'Search failed.'; clear($('siteResults')); return; }
+      var sites = d.sites || [];
+      $('siteMsg').textContent = sites.length ? sites.length + ' site(s) found. Click one for details.' : 'No site matches that.';
+      table($('siteResults'), [
+        { h: 'Business', v: function (r) { return r.site_name || ''; } },
+        { h: 'Contact', v: function (r) { return contact(r); } },
+        { h: 'Plan', v: function (r) { return r.plan; } },
+        { h: 'Last seen', v: function (r) { return when(r.last_seen); } },
+        { h: 'Site', v: function (r) { return short(r.instance_id); }, title: function (r) { return r.instance_id; } }
+      ], sites, 'No site matches that.', showSite);
+      if (sites.length === 1) showSite(sites[0]);
+    });
+  }
+  $('siteSearch').onclick = searchSites;
+  $('siteQuery').onkeydown = function (e) { if (e.key === 'Enter') searchSites(); };
   $('refresh').onclick = load; $('apply').onclick = load;
   $('auto').onchange = function () { clearInterval(timer); if ($('auto').checked) timer = setInterval(load, 60000); };
   $('saveControl').onclick = function () {
