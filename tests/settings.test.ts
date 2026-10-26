@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_COLORS, isHex, onColor, resolveColors } from '../src/shared/colors';
-import { decodeSettings, DEFAULT_SETTINGS, encodeSettings, normalizeSettings, stripProFeatures, MAX_HIDDEN, TRUNCATE_MAX, TRUNCATE_MIN, usesProFeatures } from '../src/shared/settings';
+import { decodeSettings, DEFAULT_SETTINGS, encodeSettings, normalizeSettings, stripProFeatures, needsFreshPlanForSave, MAX_HIDDEN, TRUNCATE_MAX, TRUNCATE_MIN, usesProFeatures } from '../src/shared/settings';
 
 describe('normalizeSettings', () => {
   it('gives the defaults for nothing, junk and wrong types', () => {
@@ -84,5 +84,16 @@ describe('colours', () => {
     expect(onColor('#212121')).toBe('#ffffff');
     expect(onColor('#2563eb')).toBe('#ffffff');
     expect(onColor('#facc15')).toBe('#111111');
+  });
+});
+
+describe('needsFreshPlanForSave (skipping the slow plan re-read)', () => {
+  const plain = normalizeSettings({ count: 5 });
+  const pro = normalizeSettings({ count: 50, sort: 'highest' });
+  it('re-reads only when a Free-looking site saves Pro options', () => {
+    expect(needsFreshPlanForSave('free', pro)).toBe(true);
+    expect(needsFreshPlanForSave('free', plain)).toBe(false);
+    expect(needsFreshPlanForSave('pro', pro)).toBe(false);
+    expect(needsFreshPlanForSave('unknown', pro)).toBe(false);
   });
 });

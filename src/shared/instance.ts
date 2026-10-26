@@ -53,6 +53,9 @@ export async function readFresh(instanceId: string): Promise<InstanceInfo | null
 export async function readInstance(): Promise<InstanceInfo> {
   const first = await readFirst();
   if (!first.instanceId) return first;
+  // A paid plan cannot be older than the real one in a way that matters here (an upgrade is the stale case), and the fresh read
+  // costs about 5 seconds, so only look again when the first read says Free or does not know.
+  if (first.isFree === false) return first;
   const latest = await readFresh(first.instanceId);
   if (!latest) return first;
   // The fresh read wins, but a missing support detail never blanks one the first read had.

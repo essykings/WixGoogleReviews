@@ -229,6 +229,14 @@ export function usesProFeatures(s: Settings): boolean {
   return s.count > limitsFor('free').maxReviews || s.stars.length < 5 || s.include.length > 0 || s.exclude.length > 0 || s.sort !== 'newest';
 }
 
+/**
+ * Whether a save needs the plan read again with a fresh login (slow: about 5 seconds). Only a site that looks Free AND is saving
+ * Pro options needs it, because that is the one case where a just-upgraded plan could be read as stale and wrongly stripped.
+ */
+export function needsFreshPlanForSave(firstRead: Plan, s: Settings): boolean {
+  return firstRead === 'free' && usesProFeatures(s);
+}
+
 /** Free: 5 reviews, no star, keyword or sort options. Everything else is kept. Pro and unknown keep everything. */
 export function stripProFeatures(s: Settings, plan: Plan): Settings {
   if (plan !== 'free') return s;
