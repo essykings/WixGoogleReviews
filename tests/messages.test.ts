@@ -25,3 +25,20 @@ describe('labels', () => {
   });
   it('says never for no date', () => expect(formatWhen(null)).toBe('never'));
 });
+
+describe('support tab', () => {
+  it('builds a mail link with the support code and plan, and nothing when no address is set', async () => {
+    const { supportMailto } = await import('../src/shared/support');
+    const link = supportMailto('abc-123', 'Pro plan', 'help@example.com');
+    expect(link.startsWith('mailto:help@example.com?subject=')).toBe(true);
+    expect(decodeURIComponent(link)).toContain('Support code: abc-123');
+    expect(decodeURIComponent(link)).toContain('Plan: Pro plan');
+    expect(supportMailto('abc', 'Free plan', '')).toBe('');
+    expect(decodeURIComponent(supportMailto(undefined, 'Free plan', 'a@b.co'))).toContain('not available');
+  });
+  it('has plain answers with no jargon', async () => {
+    const { SUPPORT_ANSWERS } = await import('../src/shared/support');
+    expect(SUPPORT_ANSWERS.length).toBeGreaterThanOrEqual(4);
+    for (const a of SUPPORT_ANSWERS) expect(`${a.q} ${a.a}`).not.toMatch(/API|JSON|token|instance|scrape|Apify|Supabase/i);
+  });
+});

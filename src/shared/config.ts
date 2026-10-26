@@ -18,6 +18,9 @@ export const ITEM_ID = 'main';
 
 export const APP_ID = 'dcbc5ea3-c937-49cc-84f4-c5a486d1478d';
 
+/** Where owners write for help (the Support tab). Leave empty to hide the email button until it is decided. */
+export const SUPPORT_EMAIL = 'hey@kaistudioco.com';
+
 /** Wix's pricing page for this app. Every upgrade button opens it in a new tab. */
 export function upgradeUrl(instanceId: string | undefined): string {
   const base = `https://www.wix.com/apps/upgrade/${APP_ID}`;

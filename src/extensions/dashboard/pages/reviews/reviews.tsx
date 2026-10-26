@@ -4,6 +4,7 @@ import { httpClient } from '@wix/essentials';
 import { COLOR_KEYS, DEFAULT_COLORS, type Colors } from '../../../../shared/colors';
 import { formatWhen, noticeForResult, planLabel, type Notice } from '../../../../shared/messages';
 import type { Plan } from '../../../../shared/plan';
+import { SUPPORT_ANSWERS, supportMailto } from '../../../../shared/support';
 import { REVIEW_MODAL_ID, REVIEW_PROMPT_DELAY_MS, wantsReviewReset } from '../../../../shared/review-prompt';
 import type { Review } from '../../../../shared/reviews';
 import {
@@ -21,6 +22,8 @@ interface Status {
   message?: string;
   plan: Plan;
   siteLanguage?: string;
+  /** The site's own ID, shown on the Support tab so we can find the site. */
+  supportCode?: string;
   upgradeUrl?: string;
   place: { placeId: string; placeUrl?: string; placeName: string; lastStatus: string; lastSuccessAt: number | null; lastAttemptAt: number | null } | null;
   /** undefined until the reviews request has answered; null when nothing is saved. */
@@ -29,7 +32,7 @@ interface Status {
   settings: Settings | null;
 }
 
-type Tab = 'connection' | 'layout' | 'settings';
+type Tab = 'connection' | 'layout' | 'settings' | 'support';
 
 const api = (path: string) => new URL(path, import.meta.url).href;
 
@@ -292,6 +295,39 @@ const DashboardPage: FC = () => {
   const rowTemplate = draft.template === 'carousel' || draft.template === 'slider';
 
   // ---- the cards ----------------------------------------------------------------------------------------------
+  const copySupportCode = async () => {
+    try {
+      await navigator.clipboard.writeText(status?.supportCode ?? '');
+      dashboard.showToast({ message: 'Support code copied', type: 'success' });
+    } catch {
+      dashboard.showToast({ message: 'Could not copy. Select the code and copy it by hand.', type: 'error' });
+    }
+  };
+  const mailto = supportMailto(status?.supportCode, planLabel(plan));
+  const supportCard = (
+    <Card title="Need help?" description="Send us your support code and a few words about what is wrong, and we will look into it.">
+      <Field label="Your support code" hint="It tells us which site is yours. It is safe to share with us.">
+        <div className="row">
+          <TextInput label="Your support code" value={status?.supportCode ?? ''} onChange={() => {}} disabled />
+          <Button variant="outline" onClick={() => void copySupportCode()} disabled={!status?.supportCode}>Copy</Button>
+        </div>
+      </Field>
+      {mailto ? <a className="btn" href={mailto}>Email support</a> : <Alert kind="info">Our support email address will appear here.</Alert>}
+    </Card>
+  );
+  const answersCard = (
+    <Card title="Quick answers" description="The things owners ask most.">
+      <div className="stack">
+        {SUPPORT_ANSWERS.map((x) => (
+          <div key={x.q}>
+            <strong>{x.q}</strong>
+            <p>{x.a}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+
   const connectionCard = place ? (
     <Card title="Your business" description="This is the business your reviews come from.">
       <div className="biz">
@@ -317,7 +353,7 @@ const DashboardPage: FC = () => {
       </div>
       {confirmDisconnect && (
         <Alert kind="info">
-          Disconnecting removes this business and its saved reviews from your site. You can connect it again at any time, which may use one of this month's updates.
+          Your reviews will stop showing on your site. If you connect this business again, we will collect its reviews again, which takes about half a minute.
         </Alert>
       )}
       {notice && <Alert kind={kindFor(notice.kind)}>{notice.text}</Alert>}
@@ -577,6 +613,7 @@ const DashboardPage: FC = () => {
             { id: 'connection', label: 'Connection' },
             { id: 'layout', label: 'Layout' },
             { id: 'settings', label: 'Settings' },
+            { id: 'support', label: 'Support' },
           ]}
         />
 
@@ -596,7 +633,9 @@ const DashboardPage: FC = () => {
           </div>
         )}
 
-        {status && tab !== 'connection' && expanded && <div className="stack wide">{previewCard}</div>}
+        {status && tab === 'support' && <div className="stack">{supportCard}{answersCard}</div>}
+
+        {status && tab !== 'connection' && tab !== 'support' && expanded && <div className="stack wide">{previewCard}</div>}
 
         {status && tab === 'layout' && !expanded && (
           <div className="layout">

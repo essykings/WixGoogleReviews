@@ -19,9 +19,9 @@ export function noticeForResult(result: SyncResult | undefined): Notice {
     case 'wait':
       return { kind: 'warning', text: 'We just tried a moment ago. Please wait about an hour before trying again.' };
     case 'limit':
-      return { kind: 'warning', text: 'You have reached this month’s update limit. It resets automatically.' };
+      return { kind: 'warning', text: 'Your plan allows only so many review checks a month, and you have used them all. They come back automatically, and your saved reviews keep showing.' };
     case 'paused':
-      return { kind: 'warning', text: 'Updates are paused for a little while. Your saved reviews keep showing. Please try again later.' };
+      return { kind: 'warning', text: 'We have paused collecting new reviews for a little while. Your saved reviews keep showing. Please try again later.' };
     case 'no_place':
       return { kind: 'warning', text: 'Add your Place ID first.' };
     case 'error':

@@ -18,7 +18,7 @@ export const GET: APIRoute = async () => {
     const tFirst = Date.now() - t0;
     if (!first.instanceId) return Response.json({ ok: true, plan: planOf(first), place: null, cache: null, settings: null });
     const data = siteData(first.instanceId);
-    const [fresh, place, stored] = await Promise.all([readFresh(first.instanceId), loadPlace(data), loadSettings(data)]);
+    const [fresh, place, stored] = await Promise.all([first.isFree === false ? null : readFresh(first.instanceId), loadPlace(data), loadSettings(data)]);
     const tData = Date.now() - t0 - tFirst;
     const info = fresh ? { ...first, ...fresh, instanceId: first.instanceId } : first;
     const plan = planOf(info);
@@ -30,6 +30,7 @@ export const GET: APIRoute = async () => {
     return Response.json({
       ok: true,
       plan,
+      supportCode: info.instanceId,
       siteLanguage: info.siteLanguage ?? 'en',
       limits: limitsFor(plan),
       upgradeUrl: upgradeUrl(info.instanceId),
