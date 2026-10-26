@@ -28,3 +28,21 @@ export function renderAlertEmail(a: Alert, insightsHint = "Open your Insights pa
   const text = `${label}\n\n${a.subject}\n\n${a.body}\n\n${insightsHint}`
   return { subject, html, text }
 }
+
+/** Why Resend refused an email, short and safe to return (never includes the API key). */
+export function describeSendFailure(status: number, bodyText: string): { status: number; reason: string } {
+  let reason = ""
+  try {
+    const j = JSON.parse(bodyText)
+    reason = typeof j?.message === "string" ? j.message : typeof j?.error === "string" ? j.error : ""
+  } catch {
+    reason = bodyText
+  }
+  const hint =
+    status === 401 || status === 403
+      ? " (check the Resend API key, and that the sender address is on a domain verified in Resend; the test sender onboarding@resend.dev only delivers to your own Resend account email)"
+      : status === 422
+        ? " (check the sender and recipient addresses)"
+        : ""
+  return { status, reason: (reason.replace(/\s+/g, " ").trim().slice(0, 200) || "no reason given") + hint }
+}

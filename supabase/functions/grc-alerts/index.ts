@@ -5,7 +5,7 @@
 //
 // Secrets: INSIGHTS_TOKEN, RESEND_API_KEY, ALERT_EMAIL_FROM, ALERT_EMAIL_TO (comma-separated). Deploy with --no-verify-jwt.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { emailSettings, renderAlertEmail, type Alert } from "../_shared/alerts.ts"
+import { describeSendFailure, emailSettings, renderAlertEmail, type Alert } from "../_shared/alerts.ts"
 import { sameToken } from "../_shared/auth.ts"
 
 const TOKEN = Deno.env.get("INSIGHTS_TOKEN") ?? ""
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     const due = (data ?? []) as Alert[]
     if (!settings) return json({ ok: true, emailConfigured: false, due: due.map((a) => a.alert_key) })
     const sent: string[] = []
-    const failed: string[] = []
+    const failed: Array<{ key: string; status: number; reason: string }> = []
     for (const alert of due) {
       const mail = renderAlertEmail(alert)
       const res = await fetch("https://api.resend.com/emails", {
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
       if (res.ok) {
         await supabase.rpc("grc_alert_mark_sent", { p_key: alert.alert_key, p_subject: alert.subject })
         sent.push(alert.alert_key)
-      } else failed.push(alert.alert_key) // not marked, so the next run tries again
+      } else failed.push({ key: alert.alert_key, ...describeSendFailure(res.status, await res.text().catch(() => "")) }) // not marked, so the next run tries again
     }
     return json({ ok: true, emailConfigured: true, sent, failed })
   } catch {
