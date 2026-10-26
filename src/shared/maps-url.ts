@@ -36,6 +36,23 @@ export function classifyMapsUrl(text: string): { kind: UrlKind; url: string } | 
 }
 
 /**
+ * The link as we send it to the provider. A pasted place link can carry the owner's earlier search ("Bali, Indonesia") as a first
+ * block, and the provider then reads that area instead of the business and finds no reviews. Every place link also holds the
+ * business's own ID (the last "!1s0x...:0x..." in it); its second half is the number Google calls the CID, and
+ * maps?cid=<number> points straight at the business. Links without one (or already in that form) are sent as they are.
+ */
+export function providerUrlFor(url: string): string {
+  const ids = [...url.matchAll(/!1s0x[0-9a-f]+:0x([0-9a-f]+)/gi)];
+  const last = ids[ids.length - 1];
+  if (!last) return url;
+  try {
+    return `https://www.google.com/maps?cid=${BigInt('0x' + last[1]).toString()}`;
+  } catch {
+    return url;
+  }
+}
+
+/**
  * Follows a Share link's redirects (at most 4, and only between Google's own hosts) and returns the full place link,
  * or null if it does not lead to one. `fetchImpl` is injectable for tests.
  */

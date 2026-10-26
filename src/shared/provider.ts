@@ -1,6 +1,7 @@
 // The one place that knows which review provider we use. Everything else calls fetchReviews(), so the
 // provider can be swapped (see docs/decisions.md). Today: Apify "compass/Google-Maps-Reviews-Scraper".
 
+import { providerUrlFor } from './maps-url';
 import { mapProviderItems, type PlaceSummary, type Review } from './reviews';
 
 export const ACTOR = 'compass~Google-Maps-Reviews-Scraper';
@@ -18,7 +19,7 @@ export interface FetchedReviews {
 /** The provider's input. personalData must be true or reviews arrive without author names; we never store the photo or profile link. */
 export function buildProviderInput(target: Target, maxReviews: number) {
   return {
-    ...('placeId' in target ? { placeIds: [target.placeId] } : { startUrls: [{ url: target.url }] }),
+    ...('placeId' in target ? { placeIds: [target.placeId] } : { startUrls: [{ url: providerUrlFor(target.url) }] }),
     maxReviews,
     reviewsSort: 'newest',
     language: 'en',
