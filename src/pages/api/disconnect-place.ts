@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
 import { disconnectedPlace } from '../../shared/cache-rules';
-import { describeError } from '../../shared/errors';
 import { readInstance } from '../../shared/instance';
 import { deleteAllCaches, loadPlaceRecord, savePlace, siteData } from '../../shared/store';
 
@@ -19,6 +18,6 @@ export const POST: APIRoute = async () => {
     return Response.json({ ok: true });
   } catch (error) {
     console.error('disconnect-place failed', error);
-    return Response.json({ ok: false, message: 'Could not disconnect. Please try again.', detail: describeError(error) }, { status: 500 });
+    return Response.json({ ok: false, message: 'Could not disconnect. Please try again.' }, { status: 500 });
   }
 };

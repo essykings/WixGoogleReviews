@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
 import { upgradeUrl } from '../../shared/config';
-import { describeError } from '../../shared/errors';
 import { readFirst, readFresh } from '../../shared/instance';
 import { limitsFor, planOf } from '../../shared/plan';
 import { stripProFeatures, usesProFeatures } from '../../shared/settings';
@@ -41,6 +40,6 @@ export const GET: APIRoute = async () => {
     });
   } catch (error) {
     console.error('review-status failed', error);
-    return Response.json({ ok: false, message: 'Could not read your reviews.', detail: describeError(error) }, { status: 500 });
+    return Response.json({ ok: false, message: 'Could not read your reviews.' }, { status: 500 });
   }
 };

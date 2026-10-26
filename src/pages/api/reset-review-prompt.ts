@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { describeError } from '../../shared/errors';
 import { readInstance } from '../../shared/instance';
 import { loadPlaceRecord, savePlace, siteData } from '../../shared/store';
 
@@ -14,6 +13,6 @@ export const POST: APIRoute = async () => {
     return Response.json({ ok: true });
   } catch (error) {
     console.error('reset-review-prompt failed', error);
-    return Response.json({ ok: false, detail: describeError(error) }, { status: 500 });
+    return Response.json({ ok: false }, { status: 500 });
   }
 };

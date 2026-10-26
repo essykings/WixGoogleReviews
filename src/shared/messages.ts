@@ -13,7 +13,7 @@ export function noticeForResult(result: SyncResult | undefined): Notice {
     case 'updated':
       return { kind: 'success', text: `Done. We found ${result.reviews} review${result.reviews === 1 ? '' : 's'} for your business.` };
     case 'empty':
-      return { kind: 'warning', text: 'We saved your place, but Google shows no reviews for it yet.' };
+      return { kind: 'warning', text: 'We saved your place, but we could not find any reviews for it. If this is not your business, disconnect it and paste the right link.' };
     case 'fresh':
       return { kind: 'standard', text: 'Your reviews are already up to date.' };
     case 'wait':
@@ -25,7 +25,7 @@ export function noticeForResult(result: SyncResult | undefined): Notice {
     case 'no_place':
       return { kind: 'warning', text: 'Add your Place ID first.' };
     case 'error':
-      return { kind: 'danger', text: result.detail ? `${result.message} (Test details: ${result.detail})` : result.message };
+      return { kind: 'danger', text: result.message };
     default:
       return { kind: 'danger', text: 'Something went wrong. Please try again.' };
   }

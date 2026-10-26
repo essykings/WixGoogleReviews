@@ -1,7 +1,6 @@
 // Keeps one site's saved reviews up to date. The storage and the provider are passed in, so the rules can be
 // unit-tested without Wix or Apify. src/shared/sync.ts wires in the real ones.
 
-import { describeError } from './errors';
 import { estimateCostUsd, type FetchLog, type Origin } from './insights';
 import { limitsFor, type Plan } from './plan';
 import { decideRefresh, type RefreshAction } from './refresh';
@@ -28,8 +27,7 @@ export type SyncResult =
   | { status: 'paused'; reason: string }
   | { status: 'updated'; reviews: number }
   | { status: 'empty' }
-  // TEST BUILD: `detail` says which step failed. Remove it (and its use in the dashboard) before the App Market launch.
-  | { status: 'error'; message: string; detail?: string };
+  | { status: 'error'; message: string };
 
 export async function syncReviews(
   deps: SyncDeps,
@@ -55,7 +53,7 @@ export async function syncReviews(
     return { status };
   }
   if (deps.providerReady && !deps.providerReady()) {
-    return { status: 'error', message: 'Reviews are not set up yet on our side. Please try again later.', detail: 'The review provider token is missing.' };
+    return { status: 'error', message: 'Reviews are not set up yet on our side. Please try again later.' };
   }
 
   // The spend brake. A first fetch for a new site is let through up to 1.5 times the cap (decided in the back office).
@@ -114,6 +112,6 @@ export async function syncReviews(
     console.error('syncReviews failed', e);
     await deps.savePlace({ ...current, lastStatus: 'failed' }).catch(() => {});
     await log('failed', 0, 0, e);
-    return { status: 'error', message: 'Could not get your reviews right now. We will try again in a little while.', detail: describeError(e) };
+    return { status: 'error', message: 'Could not get your reviews right now. We will try again in a little while.' };
   }
 }

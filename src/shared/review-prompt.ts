@@ -7,6 +7,8 @@ import { APP_ID } from './config';
 export const REVIEW_URL = `https://www.wix.com/app-market/add-review/${APP_ID}`;
 
 /** The id of the review modal (from its extension file; a test checks they match). */
+/** How long to let the owner look at their new reviews before the review prompt opens. */
+export const REVIEW_PROMPT_DELAY_MS = 5000;
 export const REVIEW_MODAL_ID = '46c56845-6a25-4e7d-af10-187202b206eb';
 
 /** Ask only when this save really found reviews, and never twice for the same site. */

@@ -4,7 +4,7 @@ import { httpClient } from '@wix/essentials';
 import { COLOR_KEYS, DEFAULT_COLORS, type Colors } from '../../../../shared/colors';
 import { formatWhen, noticeForResult, planLabel, type Notice } from '../../../../shared/messages';
 import type { Plan } from '../../../../shared/plan';
-import { REVIEW_MODAL_ID, wantsReviewReset } from '../../../../shared/review-prompt';
+import { REVIEW_MODAL_ID, REVIEW_PROMPT_DELAY_MS, wantsReviewReset } from '../../../../shared/review-prompt';
 import type { Review } from '../../../../shared/reviews';
 import {
   ALIGNS, BADGE_STYLES, COLUMNS, COUNTS, DATE_FORMATS, DEFAULT_SETTINGS, FONTS, HEADER_LAYOUTS, MAX_HIDDEN, MAX_TITLE_LENGTH, NAME_FORMATS, RADII, TEMPLATES, TEXT_FORMATS, TEXT_SIZES, TRUNCATE_MAX, TRUNCATE_MIN,
@@ -105,6 +105,8 @@ const DashboardPage: FC = () => {
   const [input, setInput] = useState('');
   const [inputError, setInputError] = useState('');
   const [busy, setBusy] = useState(false);
+  // What the busy state is for, so the wait message matches it (disconnecting must not say "Finding your reviews").
+  const [busyFor, setBusyFor] = useState<'save' | 'disconnect' | 'refresh'>('save');
   const [notice, setNotice] = useState<Notice | null>(null);
   const [device, setDevice] = useState<'desktop' | 'tablet' | 'phone'>('desktop');
   const [stage, setStage] = useState<'light' | 'dark'>('light');
@@ -113,6 +115,8 @@ const DashboardPage: FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const refreshedOnce = useRef(false);
   const edited = useRef(false);
+  const promptTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(promptTimer.current), []);
 
   const load = useCallback(async (keepDraft = false) => {
     // Both requests start now. The small one (plan, business, settings) shows the controls as soon as it answers; the
@@ -194,6 +198,7 @@ const DashboardPage: FC = () => {
   );
 
   async function savePlace(placeInput = input) {
+    setBusyFor('save');
     setBusy(true);
     setNotice(null);
     setInputError('');
@@ -206,7 +211,8 @@ const DashboardPage: FC = () => {
       }
       await load(true);
       // The first time reviews are found for this site, ask for an App Market review (the server remembers that it asked).
-      if (r.ok && r.askForReview) dashboard.openModal({ modalId: REVIEW_MODAL_ID });
+      // Not straight away: let the owner see their reviews first.
+      if (r.ok && r.askForReview) promptTimer.current = window.setTimeout(() => dashboard.openModal({ modalId: REVIEW_MODAL_ID }), REVIEW_PROMPT_DELAY_MS);
     } catch (e) {
       console.error('[Google Reviews Carousel] save place failed', e);
       setNotice({ kind: 'danger', text: 'Something went wrong. Please try again.' });
@@ -216,6 +222,7 @@ const DashboardPage: FC = () => {
   }
 
   async function refreshNow() {
+    setBusyFor('refresh');
     setBusy(true);
     setNotice(null);
     try {
@@ -230,6 +237,7 @@ const DashboardPage: FC = () => {
   }
 
   async function disconnect() {
+    setBusyFor('disconnect');
     setBusy(true);
     setNotice(null);
     try {
@@ -322,7 +330,7 @@ const DashboardPage: FC = () => {
           <Button onClick={() => void savePlace()} disabled={busy || !input.trim()}>{busy ? 'Working...' : 'Save place'}</Button>
         </div>
       </Field>
-      {busy && <div className="progress inline" role="status"><span className="spin" aria-hidden="true" /><span>Finding your reviews. This usually takes 10 to 30 seconds.</span></div>}
+      {busy && <div className="progress inline" role="status"><span className="spin" aria-hidden="true" /><span>{busyFor === 'disconnect' ? 'Disconnecting your business…' : 'Finding your reviews. This usually takes 20 to 40 seconds, so please keep this page open.'}</span></div>}
       {notice && <Alert kind={kindFor(notice.kind)}>{notice.text}</Alert>}
       {!busy && <Alert kind="info">Add your business to see your own reviews in the preview.</Alert>}
     </Card>

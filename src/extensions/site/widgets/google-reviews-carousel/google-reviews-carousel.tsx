@@ -30,9 +30,8 @@ async function readSaved(): Promise<Saved | null> {
     const { settings, plan } = settingsRes.items[0] ? settingsFromRow(settingsRes.items[0]) : { settings: decodeSettings(''), plan: 'unknown' as Plan };
     if (!c) return { data: { placeId: '', placeName: '', placeImageUrl: '', rating: null, totalReviews: null, reviews: [] }, settings, plan, fetchedAt: 0 };
     return { data: { placeId: c.placeId, placeName: c.placeName, placeImageUrl: c.placeImageUrl, rating: c.rating, totalReviews: c.totalReviews, reviews: c.reviews }, settings, plan, fetchedAt: c.fetchedAt };
-  } catch (e) {
-    // TEST BUILD: say why in the console. A visitor still sees nothing rather than an error.
-    console.warn('[Google Reviews Carousel] could not read the saved reviews', e);
+  } catch {
+    // A visitor sees nothing rather than an error.
     return null;
   }
 }

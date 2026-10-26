@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { describeError } from '../../shared/errors';
 import { readFirst } from '../../shared/instance';
 import { loadActiveCache, siteData } from '../../shared/store';
 
@@ -14,6 +13,6 @@ export const GET: APIRoute = async () => {
     return Response.json({ ok: true, cache, timings: { instanceMs, dataMs: Date.now() - t0 - instanceMs, totalMs: Date.now() - t0, reviews: cache?.reviews.length ?? 0 } });
   } catch (error) {
     console.error('review-cache failed', error);
-    return Response.json({ ok: false, message: 'Could not read your reviews.', detail: describeError(error) }, { status: 500 });
+    return Response.json({ ok: false, message: 'Could not read your reviews.' }, { status: 500 });
   }
 };

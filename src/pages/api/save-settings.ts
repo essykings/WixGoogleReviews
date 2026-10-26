@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import { describeError } from '../../shared/errors';
 import { readInstance } from '../../shared/instance';
 import { planOf } from '../../shared/plan';
 import { normalizeSettings, stripProFeatures } from '../../shared/settings';
@@ -22,6 +21,6 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ ok: true, settings, plan });
   } catch (error) {
     console.error('save-settings failed', error);
-    return Response.json({ ok: false, message: 'Could not save your changes. Please try again.', detail: describeError(error) }, { status: 500 });
+    return Response.json({ ok: false, message: 'Could not save your changes. Please try again.' }, { status: 500 });
   }
 };
